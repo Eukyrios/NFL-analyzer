@@ -13,19 +13,20 @@ async function gameView(gid, playId) {
   const S = { pi: Math.max(0, G.plays.findIndex(p => p.id === playId)), f: 0, playing: false, speed: 1, trails: true, roles: false, auto: true, trk: null, hover: -1 };
   const first = gm.neutral ? gm.home : gm.away, second = gm.neutral ? gm.away : gm.home, sep = gm.neutral ? 'vs' : '@';
   const rolesLegend = Object.keys(ROLE_COL).map(k => `<span><span class="dot" style="background:${ROLE_COL[k]}"></span>${ROLE_NAME[k]}</span>`).join('');
+  setTitle(first + ' ' + sep + ' ' + second);
   app.innerHTML = `
-    <div class="hdr"><div style="min-width:150px"><div style="display:flex;align-items:center;gap:8px;font-size:22px;font-weight:600">${badgeHtml(first, 34)} ${first} ${sep} ${second} ${badgeHtml(second, 34)}</div>
-      <div class="muted small">Week ${gm.week} · ${esc(gm.when)} · ${G.plays.length} dropback plays${gm.neutral ? ' · Neutral · ' + esc(gm.stadium || '') : ''}</div></div>
-      <div style="display:flex;gap:8px;flex:1;min-width:280px;justify-content:flex-end;align-items:stretch"><div class="score" id="sc1"></div><div class="sit" id="sit"></div><div class="score" id="sc2"></div></div></div>
-    <canvas id="field"></canvas>
-    <div class="ctl"><button id="prev">⏮</button><button id="pl" class="play">▶</button><button id="next">⏭</button>
-      <span id="tsnap" style="font-family:ui-monospace,monospace"></span>
+    <div style="display:flex;align-items:center;gap:12px;margin:2px 2px 12px">${logoHtml(first, 44)}<div style="flex:1;min-width:0"><div style="font-size:21px;font-weight:700;line-height:1.15">${first} ${sep} ${second}</div>
+      <div class="muted small">Week ${gm.week} · ${esc(gm.when)} · ${G.plays.length} dropback plays${gm.neutral ? ' · Neutral · ' + esc(gm.stadium || '') : ''}</div></div>${logoHtml(second, 44)}</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px"><div class="score" id="sc1"></div><div class="sit" id="sit"></div><div class="score" id="sc2"></div></div>
+    <canvas id="field" style="border-radius:16px"></canvas>
+    <div class="ctl"><button class="btn" id="prev">⏮</button><button class="btn play" id="pl">▶</button><button class="btn" id="next">⏭</button>
       <select id="spd"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
-      <label><input type="checkbox" id="ck-trails" checked>Trails</label><label><input type="checkbox" id="ck-roles">Color by role</label><label><input type="checkbox" id="ck-auto" checked>Auto-advance</label></div>
+      <span id="tsnap" class="muted" style="font-variant-numeric:tabular-nums;margin-left:4px"></span></div>
+    <div class="ctl" style="margin-top:2px"><label><input type="checkbox" id="ck-trails" checked>Trails</label><label><input type="checkbox" id="ck-roles">Color by role</label><label><input type="checkbox" id="ck-auto" checked>Auto-advance</label></div>
     <canvas id="scrub" height="52"></canvas>
-    <div id="chips" style="margin-top:8px"></div><div id="desc" class="muted"></div>
-    <div class="legend" id="legend" style="margin:8px 0"></div>
-    <div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center"><b>Game timeline · dropback plays</b><span class="legend">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]}"></span>${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></span></div><canvas id="tl" height="96"></canvas></div>`;
+    <div id="chips" style="margin-top:6px"></div><div id="desc" class="muted"></div>
+    <div class="legend" id="legend" style="margin:10px 0"></div>
+    <div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:6px"><b style="margin:0">Game timeline · dropback plays</b><span class="legend">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]};width:8px;height:8px"></span> ${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></span></div><canvas id="tl" height="96"></canvas></div>`;
   const fieldCv = $('#field'), scrubCv = $('#scrub'), tlCv = $('#tl');
   const setup = (cv, h) => { const dpr = window.devicePixelRatio || 1, w = cv.clientWidth; cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px'; const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); return [c, w, h]; };
 
@@ -61,9 +62,9 @@ async function gameView(gid, playId) {
   const home = gm.home;
   function updateText() {
     const p = G.plays[S.pi], sc = t => t === gm.home ? p.hs : p.as;
-    const card = (t, el) => { $(el).innerHTML = `${badgeHtml(t, 28)}<b style="font-size:15px;font-weight:600">${t}</b>${p.off === t ? '<span class="dot" style="background:#3B82F6;margin:0"></span>' : ''}<b>${sc(t)}</b>`; };
+    const card = (t, el) => { $(el).innerHTML = `${logoHtml(t, 32)}<div class="tn" style="min-width:0"><b style="font-size:15px">${t}</b>${p.off === t ? ' <span class="dot" style="background:#3B82F6;width:8px;height:8px"></span>' : ''}</div><b class="n">${sc(t)}</b>`; };
     card(first, '#sc1'); card(second, '#sc2');
-    $('#sit').innerHTML = `<b style="font-family:ui-monospace,monospace">${p.qL} ${esc(p.clock)}</b><div class="muted small">${p.off} · ${esc(p.sit)}</div>`;
+    $('#sit').innerHTML = `<b>${p.qL} ${esc(p.clock)}</b><div class="muted small">${p.off} · ${esc(p.sit)}</div>`;
     const chips = [`<span class="chip" style="background:${p.col};color:${isLight(p.col) ? '#111' : '#fff'};border-color:${p.col}">${esc(p.res)}${p.yds != null ? ' ' + (p.yds > 0 ? '+' : '') + p.yds : ''}</span>`];
     [p.form, p.pers, p.box != null ? p.box + ' in box' : null, p.cov ? p.cov + ' · ' + (p.covType || '') : null, p.drop, p.pa ? 'Play action' : null, p.ttt != null ? p.ttt.toFixed(1) + ' s to throw' : null].forEach(x => x && chips.push(`<span class="chip">${esc(x)}</span>`));
     $('#chips').innerHTML = chips.join(''); $('#desc').textContent = p.desc;
@@ -85,7 +86,7 @@ async function gameView(gid, playId) {
   }
   const P = (x, y) => vp.portrait ? [vp.L + y / WID * vp.w, vp.T + (1 - x / LEN) * vp.h] : [vp.L + x / LEN * vp.w, vp.T + (1 - y / WID) * vp.h];
   function drawField(c, W, H) {
-    c.fillStyle = '#1D5A28'; c.beginPath(); c.roundRect(0, 0, W, H, 8); c.fill();
+    c.fillStyle = '#1D5A28'; c.beginPath(); c.roundRect(0, 0, W, H, 16); c.fill();
     const p = G.plays[S.pi], sc = vp.sc, rot = vp.portrait ? -Math.PI / 2 : 0;
     const rect = (x0, x1, y0, y1, col) => { const a = P(x0, y0), b = P(x1, y1); c.fillStyle = col; c.fillRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])); };
     const line = (a, b, col, w) => { const s1 = P(a[0], a[1]), s2 = P(b[0], b[1]); c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(s1[0], s1[1]); c.lineTo(s2[0], s2[1]); c.stroke(); };
@@ -94,11 +95,11 @@ async function gameView(gid, playId) {
     [[0, p.off, -Math.PI / 2], [110, p.def, Math.PI / 2]].forEach(([x0, team, a]) => {
       const col = teamCol(team); rect(x0, x0 + 10, 0, WID, col);
       const ctr = P(x0 + 5, WID / 2); c.fillStyle = 'rgba(255,255,255,.92)'; c.beginPath(); c.arc(ctr[0], ctr[1], 4.65 * sc, 0, 7); c.fill();
-      drawBadge(c, team, ctr[0], ctr[1], 3.6 * sc);
+      drawLogo(c, team, ctr[0], ctr[1], 4.0 * sc);
       const tc = isLight(col) ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.9)';
       [WID / 2 - 15, WID / 2 + 15].forEach(y => text(team, x0 + 5, y, 3 * sc, tc, a + rot, '700'));
     });
-    if (!gm.neutral) { const s = P(60, WID / 2); drawBadge(c, gm.home, s[0], s[1], 5.5 * sc, .9); }
+    if (!gm.neutral) { const s = P(60, WID / 2); drawLogo(c, gm.home, s[0], s[1], 5.5 * sc, .9); }
     for (let i = 0; i <= 18; i++) line([15 + i * 5, 0], [15 + i * 5, WID], 'rgba(255,255,255,.8)', 1);
     for (let x = 11; x < 110; x++) { if (x % 5 === 0) continue; HASHES.forEach((y, k) => { const y0 = k === 3 ? y - .67 : k === 0 ? y : y - .33; line([x, y0], [x, y0 + .67], 'rgba(255,255,255,.8)', 1); }); }
     line([10, 0], [10, WID], 'rgba(255,255,255,.8)', 2); line([110, 0], [110, WID], 'rgba(255,255,255,.8)', 2);
@@ -172,7 +173,7 @@ async function gameView(gid, playId) {
   }
   function drawTimeline() {
     const [c, W, H] = setup(tlCv, 96), plays = G.plays, left = 34, gap = 8, mid = 58, unit = (W - left - gap * 3) / plays.length;
-    drawBadge(c, home, 14, mid - 22, 10); drawBadge(c, gm.away, 14, mid + 22, 10);
+    drawLogo(c, home, 14, mid - 22, 10); drawLogo(c, gm.away, 14, mid + 22, 10);
     c.strokeStyle = '#2A3B5C'; c.beginPath(); c.moveTo(left, mid); c.lineTo(W, mid); c.stroke();
     let x = left, i = 0; S.bars = [];
     while (i < plays.length) {

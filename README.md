@@ -139,3 +139,8 @@ apk/build.sh 1 1.0                          # apk/nfl-play-viewer.apk
 ```
 
 Keep `apk/nfl.keystore`: updates must be signed with the same key to install over the old version.
+
+
+Logos in `web/logos.js` come from the MIT-licensed [klunn91/team-logos](https://github.com/klunn91/team-logos) repo
+(resized to 128 px; Washington gets a plain badge because that repo only has the retired name's logo).
+State outlines come from the `us-atlas` npm package. NFL logos are trademarks of their owners.
