@@ -81,7 +81,8 @@ const go = h => { location.hash = h; };
 // ---------- bottom sheet ----------
 let sheetOnClose = null;
 function closeSheet(silent) { $('#modal').style.display = 'none'; if (sheetOnClose && !silent) sheetOnClose(); sheetOnClose = null; }
-$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeSheet(); });
+let sheetOpenedAt = 0;
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal' && Date.now() - sheetOpenedAt > 450) closeSheet(); });
 
 // ---------- map ----------
 function spread(pts, minDist, iters) {
@@ -108,7 +109,7 @@ function mapView() {
     <div id="mlogos"></div><div id="hint">Tap a state for its teams · drag & pinch to move/zoom</div>
     <div id="zoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" style="font-size:14px">⤢</button></div></div>`;
   const wrap = $('#mapwrap'), mg = $('#mg'), conn = $('#conn'), ml = $('#mlogos');
-  let W = 0, H = 0, k = 1, tx = 0, ty = 0, k0 = 1, sel = null, cur = [];
+  let dragged = false, lastTap = 0, W = 0, H = 0, k = 1, tx = 0, ty = 0, k0 = 1, sel = null, cur = [];
   const LOGO = () => (W < 600 ? 34 : 52);
   ml.innerHTML = META.teams.map(t => `<div class="ml" data-t="${t.a}" data-state="${t.state}">${logoHtml(t.a, LOGO())}</div>`).join('');
   const els = [...ml.children];
@@ -121,11 +122,11 @@ function mapView() {
   function draw() {
     clamp(); mg.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
     const L = LOGO(), at = META.teams.map(t => { const xy = USMAP.xy[t.a]; return xy ? [xy[0] * k + tx, xy[1] * k + ty] : [-99, -99]; });
-    const sp = spread(at, L * 1.02, 50).map(([x, y]) => [Math.max(L / 2, Math.min(W - L / 2, x)), Math.max(L / 2 + 24, Math.min(H - L / 2, y))]);
+    const sp = spread(at, L * 1.02, 50);
     let c = ''; cur = sp;
     META.teams.forEach((t, i) => {
-      const e = els[i]; e.style.transform = `translate(${sp[i][0] - L / 2}px,${sp[i][1] - L / 2}px)`; e.classList.toggle('dim', !!sel && sel !== t.state);
-      if (Math.hypot(sp[i][0] - at[i][0], sp[i][1] - at[i][1]) > 4) c += `<line x1="${at[i][0]}" y1="${at[i][1]}" x2="${sp[i][0]}" y2="${sp[i][1]}"/><circle cx="${at[i][0]}" cy="${at[i][1]}" r="2.5" fill="#fff" stroke="none"/>`;
+      const e = els[i]; const vis = sp[i][0] > -L / 2 && sp[i][0] < W + L / 2 && sp[i][1] > -L / 2 && sp[i][1] < H + L / 2; e.style.visibility = vis ? 'visible' : 'hidden'; e.style.transform = `translate(${sp[i][0] - L / 2}px,${sp[i][1] - L / 2}px)`; e.classList.toggle('dim', !!sel && sel !== t.state);
+      if (vis && Math.hypot(sp[i][0] - at[i][0], sp[i][1] - at[i][1]) > 4) c += `<line x1="${at[i][0]}" y1="${at[i][1]}" x2="${sp[i][0]}" y2="${sp[i][1]}"/><circle cx="${at[i][0]}" cy="${at[i][1]}" r="2.5" fill="#fff" stroke="none"/>`;
     });
     conn.innerHTML = c;
     mg.querySelectorAll('.st').forEach(p => p.classList.toggle('sel', p.dataset.state === sel));
@@ -134,12 +135,12 @@ function mapView() {
   size(); fitView(); draw();
   // pointer interaction: tap, drag, pinch
   const ptrs = new Map(); let down = null, pinch = 0;
-  wrap.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); down = { x: e.clientX, y: e.clientY, t: Date.now(), target: e.target, moved: false, tx, ty }; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); down.moved = true; } });
+  wrap.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); dragged = false; down = { x: e.clientX, y: e.clientY, t: Date.now(), target: e.target, moved: false, tx, ty }; if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); down.moved = true; } });
   wrap.addEventListener('pointermove', e => {
     if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, [e.clientX, e.clientY]);
     const r = wrap.getBoundingClientRect();
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, d / pinch); pinch = d; }
-    else if (down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7 || down.moved)) { down.moved = true; tx = down.tx + e.clientX - down.x; ty = down.ty + e.clientY - down.y; draw(); }
+    else if (down && (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 14 || down.moved)) { down.moved = dragged = true; tx = down.tx + e.clientX - down.x; ty = down.ty + e.clientY - down.y; draw(); }
   });
   const up = e => {
     const was = ptrs.has(e.pointerId); ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0;
@@ -150,6 +151,7 @@ function mapView() {
   wrap.addEventListener('wheel', e => { e.preventDefault(); const r = wrap.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.18 : 1 / 1.18); }, { passive: false });
   $('#zin').onclick = e => { e.stopPropagation(); zoomAt(W / 2, H / 2, 1.5); }; $('#zout').onclick = e => { e.stopPropagation(); zoomAt(W / 2, H / 2, 1 / 1.5); }; $('#zfit').onclick = e => { e.stopPropagation(); fitView(); draw(); };
   ['zin', 'zout', 'zfit'].forEach(id => $('#' + id).addEventListener('pointerdown', e => e.stopPropagation()));
+  wrap.addEventListener('click', e => { if (dragged || Date.now() - lastTap < 500) return; if (e.target.closest && e.target.closest('#zoom')) return; down = { x: e.clientX, y: e.clientY }; tap(e.target); });
   // logos sit above the svg; use geometry to find a tapped logo
   function tap(target) {
     let code = null;
@@ -157,6 +159,7 @@ function mapView() {
     let best = null, bd = 1e9; cur.forEach((p, i) => { const d = Math.hypot(p[0] - px, p[1] - py); if (d < L / 2 + 6 && d < bd) { best = META.teams[i]; bd = d; } });
     if (best) code = best.state; else { const s = target.closest && target.closest('[data-state]'); if (s) code = s.dataset.state; }
     if (!code) return;
+    lastTap = Date.now();
     if (!hasTeam[code]) { const st = USMAP.states.find(s => s.code === code); toast(`${st ? st.name : code} has no NFL team`); return; }
     openState(code);
   }
@@ -166,7 +169,7 @@ function mapView() {
     $('#mbox').innerHTML = `<div class="grab"></div><div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 2px"><div><div style="font-size:22px;font-weight:700">${esc(META.states[code])}</div><div class="muted small">${list.length} team${list.length === 1 ? '' : 's'}</div></div>
       <button id="mx" style="width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--raised)">✕</button></div><div class="list" style="margin-top:12px">` +
       list.map(t => `<div class="row" data-t="${t.a}" style="min-height:72px;border-left:5px solid ${t.c}">${logoHtml(t.a, 48)}<div class="grow"><div class="name" style="font-size:17px">${esc(t.n)}</div><div class="sub">${esc(t.city)}</div></div><span class="chev">›</span></div>`).join('') + '</div>';
-    $('#modal').style.display = 'flex'; sheetOnClose = () => { sel = null; draw(); };
+    $('#modal').style.display = 'flex'; sheetOpenedAt = Date.now(); sheetOnClose = () => { sel = null; draw(); };
     $('#mx').onclick = () => closeSheet();
     document.querySelectorAll('#mbox .row').forEach(r => r.onclick = () => { const a = r.dataset.t; closeSheet(true); go('team/' + a); });
   }
