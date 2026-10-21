@@ -1,0 +1,9 @@
+[package]
+name = "webexport"
+version = "0.1.0"
+edition = "2021"
+description = "Exports data/nfl.sqlite as JS data files for the self-contained web/APK build"
+
+[dependencies]
+nfl_core = { path = "../nfl_core" }
+serde_json = "1"

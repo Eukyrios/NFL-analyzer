@@ -125,3 +125,17 @@ cargo apk build --release -p app           # APK in target/release/apk/
 ```
 
 **iOS** needs a Mac with Xcode and a community setup (eframe doesn't officially support iOS yet).
+
+## Android APK without the Android SDK
+
+`apk/build.sh` builds a signed APK that wraps the self-contained web version of the app (`web/`) in a
+WebView. It needs only Java, Python and the `@postar/apktool-node` npm package (it bundles apktool and apksigner).
+
+```sh
+cargo run -p etl --release                  # data/nfl.sqlite
+cargo run -p webexport --release            # web/data/*.js
+npm i @postar/apktool-node                  # then: export APKTOOL_LIB=<node_modules>/@postar/apktool-node/lib
+apk/build.sh 1 1.0                          # apk/nfl-play-viewer.apk
+```
+
+Keep `apk/nfl.keystore`: updates must be signed with the same key to install over the old version.

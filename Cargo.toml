@@ -24,7 +24,7 @@ opt-level = 1
 
 # Native app crates (the root package above is the existing web app and is unchanged).
 [workspace]
-members = ["etl", "nfl_core", "app"]
+members = ["etl", "nfl_core", "app", "webexport"]
 # Plain `cargo run` launches the native app; the web app is `cargo run -p nfl-analizer`.
 default-members = ["app"]
 resolver = "2"

@@ -4,3 +4,10 @@ nfl.db.importing
 data/*.sqlite
 data/*.sqlite.building
 app/assets/*.sqlite
+
+# Web/APK build outputs
+web/data/
+web/dist/
+apk/build/
+apk/*.apk
+apk/*.keystore

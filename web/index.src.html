@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>NFL Play Viewer</title>
+<style>
+:root{--bg:#0B1526;--surface:#13213A;--raised:#1B2C4B;--border:#2A3B5C;--muted:#9AA8BD;--navy:#013369;--red:#D50A0A;--grass:#1D5A28}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:#fff;font:15px/1.35 system-ui,-apple-system,Roboto,"Segoe UI",sans-serif;overflow-x:hidden}
+#top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;background:var(--navy);padding:8px 12px;min-height:44px}
+#top b{font-size:17px;font-weight:600}
+#back{display:none;background:rgba(11,21,38,.4);color:#fff;border:0;border-radius:6px;padding:7px 12px;font-size:15px}
+#err{margin-left:auto;font-size:12px;color:#fff}
+#app{padding:10px 12px 28px}
+.muted{color:var(--muted)}.small{font-size:12.5px}
+h2{font-size:20px;margin:14px 0 6px}
+.row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin:0 0 6px;min-height:52px;cursor:pointer}
+.row:active,.row:hover{background:var(--raised)}
+.row .grow{flex:1;min-width:0}.row .name{font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .num{color:var(--muted);font-family:ui-monospace,Menlo,monospace;min-width:34px}
+.snaps{font-family:ui-monospace,Menlo,monospace;color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.badge{flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden}
+.tabs{display:flex;gap:8px;margin:10px 0}
+.tab{background:var(--surface);border:1px solid var(--border);color:#fff;border-radius:6px;padding:10px 16px;font-size:15px}
+.tab.on{background:var(--navy)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:0 0 10px}
+.cards{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.stat{background:var(--surface);border-radius:6px;padding:8px 12px;min-width:84px}.stat b{display:block;font-size:20px;font-weight:500}.stat span{font-size:12px;color:var(--muted)}
+.chip{display:inline-block;background:var(--raised);border:1px solid var(--border);border-radius:99px;padding:3px 11px;margin:0 6px 6px 0;font-size:12.5px}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13px}.bar .l{width:38%;min-width:90px;color:#dfe6f1}.bar .t{flex:1;background:var(--bg);border-radius:3px;height:16px}.bar .t i{display:block;height:100%;border-radius:3px}.bar .v{width:78px;text-align:right;color:var(--muted);font-size:12px}
+canvas{display:block;width:100%}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9;display:none;align-items:center;justify-content:center;padding:18px}
+#modal .box{background:var(--raised);border:1px solid var(--border);border-radius:10px;padding:14px;width:100%;max-width:400px;max-height:85vh;overflow:auto}
+#modal h3{margin:0;font-size:20px;display:flex;justify-content:space-between;align-items:center}
+#modal button.x{background:var(--bg);color:#fff;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:16px}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+.ctl button,.ctl select{background:var(--surface);border:1px solid var(--border);color:#fff;border-radius:6px;padding:8px 14px;font-size:16px;min-width:44px;min-height:40px}
+.ctl button.play{background:var(--red);border-color:var(--red)}
+.ctl label{display:flex;align-items:center;gap:5px;font-size:14px}
+.ctl input[type=checkbox]{width:18px;height:18px}
+.score{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px}
+.score b{font-size:24px;font-weight:500}
+.hdr{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;justify-content:space-between;margin-bottom:8px}
+.sit{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 12px;text-align:center;flex:1;min-width:120px}
+.legend span{margin-right:12px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="top"><button id="back">← Back</button><b>NFL Play Viewer</b><span id="err"></span></div>
+<div id="app"></div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+<script src="data/meta.js"></script>
+<script>
+/*APP_JS*/
+</script>
+</body>
+</html>
