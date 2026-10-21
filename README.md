@@ -4,6 +4,11 @@ A local web app for exploring the [NFL Big Data Bowl 2023](https://www.kaggle.co
 data. Pick a game, and every dropback play appears on a clickable timeline. Select a play and
 an animated field shows all 22 players and the ball, frame by frame.
 
+![Demo: three plays from BAL @ LV, Week 1 2021](docs/demo.gif)
+
+*BAL @ LV, Week 1 2021: a 49-yard completion with trails on, a Maxx Crosby sack colored by PFF
+role with the hover tooltip, and the overtime touchdown. [Full-resolution MP4](docs/demo.mp4).*
+
 Each play shows:
 
 - **Field:** players with jersey numbers, which way each one is facing, the ball, the line of
@@ -19,22 +24,18 @@ Each play shows:
 ## Getting started
 
 Requirements: Rust (`cargo`), and internet access the first time (for logos and the schedule).
+The competition data is included in the repo under `data/` (about 1 GB), so there's nothing
+else to download.
 
-1. Download the competition data and put it next to this repo, so the layout is:
-   ```
-   hackaton/
-   ├── NFL-analizer/                          (this repo)
-   └── nfl-big-data-bowl-regional-event-data/
-       └── data/  games.csv  plays.csv  players.csv  pffScoutingData.csv  tracking/
-   ```
-   If it lives somewhere else, pass `--data <path-to-data-dir>`.
-2. Run:
-   ```sh
-   cargo run
-   ```
-   The first run imports the CSVs into `nfl.db` (SQLite, about 1.2 GB, about 20 s). The app then
-   serves http://localhost:8000 and opens your browser. Later runs start straight away. Press
-   Ctrl+C to stop.
+```sh
+git clone https://github.com/Eukyrios/NFL-analyzer.git
+cd NFL-analyzer
+cargo run
+```
+
+The first run imports `data/` into `nfl.db` (SQLite, about 1.2 GB, about 20 s). The app then
+serves http://localhost:8000 and opens your browser. Later runs start straight away. Press
+Ctrl+C to stop.
 
 Other commands:
 
@@ -42,6 +43,7 @@ Other commands:
 cargo run -- serve --port 9000 --no-open    # other port (the next free one is used if it's taken), no browser
 cargo run -- import                         # rebuild nfl.db from the CSVs
 cargo run -- --db /path/to/nfl.db           # use a database somewhere else
+cargo run -- import --data /path/to/data    # import CSVs from another folder
 ```
 
 **Keys:** Space to play/pause, ← / → to step one frame, ↑ / ↓ for the previous/next play. Hover
@@ -67,7 +69,7 @@ over a player to see their name, position, PFF role and current speed.
 | `logos` | Team logos, downloaded from ESPN's CDN the first time each one is shown |
 
 `NA` is stored as NULL, and numbers are stored as numbers. The ball's tracking rows have a NULL
-`nflId`. Column meanings are in the dataset's own README.
+`nflId`. Column meanings are in [data-README.md](data-README.md).
 
 **Neutral-site games.** The dataset has no venue column, so on startup the app adds `location`
 (Home/Neutral) and `stadium` to `games` from the

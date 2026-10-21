@@ -13,7 +13,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-const DEFAULT_DATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../nfl-big-data-bowl-regional-event-data/data");
+const DEFAULT_DATA: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data");
 const DEFAULT_DB: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/nfl.db");
 
 #[derive(Parser)]
