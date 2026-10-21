@@ -13,6 +13,7 @@ const isLight = h => lum(h) > .35;
 const onColor = h => isLight(h) ? '#111111' : '#ffffff';
 const teamCol = a => (TEAMS[a] ? TEAMS[a].c : '#6E7681');
 const mix = (h, k) => { const [r, g, b] = hexRgb(h); const m = v => Math.round(v * k); return `rgb(${m(r)},${m(g)},${m(b)})`; };
+window.vs = (a, b, n) => `<span class="vsb">${logoHtml(a, n)}<i>vs</i>${logoHtml(b, n)}</span>`;
 window.hdFail = el => { el.parentNode.outerHTML = logoHtml(el.dataset.t, 64); };
 const setTitle = t => { $('#title').textContent = t; };
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.opacity = 0, 1700); };
@@ -193,7 +194,7 @@ async function teamView(abbr, tab) {
     h += '<div class="list" style="margin-top:10px">' + d.games.map(g => {
       const when = g.when + (g.neutral ? ' · Neutral · ' + (g.stadium || 'neutral site') : '');
       const k = g.res ? g.res[0] : '', bg = k === 'W' ? 'rgba(63,185,80,.18)' : k === 'L' ? 'rgba(248,81,73,.18)' : 'rgba(143,160,186,.18)', col = k === 'W' ? '#56d364' : k === 'L' ? '#ff7b72' : '#8FA0BA';
-      return `<div class="row" data-g="${g.id}">${logoHtml(g.opp, 44)}<div class="grow"><div class="name">${esc(g.label)}</div><div class="sub">Week ${g.week} · ${esc(when)}</div></div>
+      return `<div class="row" data-g="${g.id}">${vs(abbr, g.opp, 34)}<div class="grow"><div class="name">${esc((TEAMS[g.opp] || {}).n || g.opp)}</div><div class="sub">Week ${g.week} · ${esc(when)}</div></div>
         <div style="text-align:right">${g.res ? `<div class="wl" style="background:${bg};color:${col}">${esc(g.res)}</div>` : ''}<div class="sub" style="margin-top:3px">${g.po} off · ${g.pd} def</div></div></div>`;
     }).join('') + '</div>';
   } else {
@@ -230,7 +231,7 @@ async function playerView(id, abbr) {
     h += `<details class="acc"${bi === 0 ? ' open' : ''}><summary>${esc(b.t)}</summary><div class="card" style="margin-top:0">` + b.bars.map(([l, v, c]) => `<div class="bar"><span class="l">${esc(l)}</span><span class="t"><i style="width:${(v / max * 100).toFixed(1)}%;background:${c}"></i></span><span class="v">${v % 1 ? v.toFixed(1) : v} · ${Math.round(v / total * 100)}%</span></div>`).join('') + '</div></details>';
   });
   if (p.trend.length) h += `<div class="card"><b>${esc(p.trendTitle)}</b><canvas id="trend" height="160"></canvas></div>`;
-  h += '<h2>Game log</h2><div class="list">' + p.games.map(g => `<div class="row" data-g="${g.gid}">${logoHtml(g.opp, 40)}<div class="grow"><div class="name">Week ${g.week} · vs ${esc(g.opp)}</div><div class="sub">${esc(g.headline)}</div></div><div class="snaps">${g.snaps}<small>snaps</small></div></div>`).join('') + '</div>';
+  h += '<h2>Game log</h2><div class="list">' + p.games.map(g => `<div class="row" data-g="${g.gid}">${vs(tm, g.opp, 34)}<div class="grow"><div class="name">Week ${g.week}</div><div class="sub">${esc(g.headline)}</div></div><div class="snaps">${g.snaps}<small>snaps</small></div></div>`).join('') + '</div>';
   app.innerHTML = h;
   app.querySelectorAll('[data-g]').forEach(r => r.onclick = () => go('game/' + r.dataset.g));
   const cv = $('#trend');
