@@ -10,6 +10,6 @@ d.mkdir(exist_ok=True)
 if (d / "data").exists():
     shutil.rmtree(d / "data")
 shutil.copytree(w / "data", d / "data")
-for f in ("logos.js", "usmap.js"):
+for f in ("logos.js", "usmap.js", "heads.js"):
     shutil.copy(w / f, d / f)
 print("built", d / "index.html", len(html) // 1024, "KB")

@@ -13,6 +13,7 @@ const isLight = h => lum(h) > .35;
 const onColor = h => isLight(h) ? '#111111' : '#ffffff';
 const teamCol = a => (TEAMS[a] ? TEAMS[a].c : '#6E7681');
 const mix = (h, k) => { const [r, g, b] = hexRgb(h); const m = v => Math.round(v * k); return `rgb(${m(r)},${m(g)},${m(b)})`; };
+window.hdFail = el => { el.parentNode.outerHTML = logoHtml(el.dataset.t, 64); };
 const setTitle = t => { $('#title').textContent = t; };
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.opacity = 0, 1700); };
 
@@ -221,7 +222,8 @@ async function playerView(id, abbr) {
   if (!p) throw new Error('No stats for this player.');
   const tm = p.team || abbr, t = TEAMS[tm] || TEAMS[abbr]; setTitle(p.name);
   const bio = [p.height, p.weight ? p.weight + ' lb' : null, p.college, p.age != null ? 'age ' + p.age : null].filter(Boolean).join(' · ');
-  let h = `<div class="hero" style="${heroStyle(t.c)}">${logoHtml(tm, 64)}<div style="min-width:0"><div class="t1">${esc(p.name)}</div><div class="t2">${esc(p.posL)} · ${esc(p.roleL)}</div><div class="t2 small" style="opacity:.75">${esc(bio)}</div></div>${ros.jersey != null ? `<div class="big">${ros.jersey}</div>` : ''}</div>
+  const photo = (window.HEADS && HEADS[id]) ? `<span class="ph"><img class="hd" src="${HEAD_BASE + HEADS[id]}" alt="" referrerpolicy="no-referrer" data-t="${tm}" onerror="hdFail(this)">${logoHtml(tm, 30)}</span>` : logoHtml(tm, 64);
+  let h = `<div class="hero" style="${heroStyle(t.c)}">${photo}<div style="min-width:0"><div class="t1">${esc(p.name)}</div><div class="t2">${esc(p.posL)} · ${esc(p.roleL)}</div><div class="t2 small" style="opacity:.75">${esc(bio)}</div></div>${ros.jersey != null ? `<div class="big">${ros.jersey}</div>` : ''}</div>
     <div class="tiles">${p.numbers.map(([l, v]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>`;
   p.breakdowns.forEach((b, bi) => {
     const total = b.bars.reduce((s, x) => s + x[1], 0) || 1, max = Math.max(1, ...b.bars.map(x => x[1]));

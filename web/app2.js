@@ -13,7 +13,7 @@ async function gameView(gid, playId) {
   const S = { pi: Math.max(0, G.plays.findIndex(p => p.id === playId)), f: 0, playing: false, speed: 1, trails: true, roles: false, auto: true, close: true, trk: null, hover: -1, cam: null };
   const first = gm.neutral ? gm.home : gm.away, second = gm.neutral ? gm.away : gm.home, sep = gm.neutral ? 'vs' : '@';
   const rolesLegend = Object.keys(ROLE_COL).map(k => `<span><span class="dot" style="background:${ROLE_COL[k]}"></span>${ROLE_NAME[k]}</span>`).join('');
-  setTitle(first + ' ' + sep + ' ' + second);
+  setTitle(((TEAMS[first] || {}).n || first) + ' vs ' + ((TEAMS[second] || {}).n || second));
   app.innerHTML = `
     <div class="muted small" style="margin:0 2px 8px">Week ${gm.week} · ${esc(gm.when)} · ${G.plays.length} dropback plays${gm.neutral ? ' · Neutral · ' + esc(gm.stadium || '') : ''}</div>
     <div style="display:flex;gap:8px;margin-bottom:10px"><div class="score" id="sc1"></div><div class="sit" id="sit"></div><div class="score" id="sc2"></div></div>
