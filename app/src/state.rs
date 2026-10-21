@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn step_through_list() {
         let mut s = state();
-        s.open_play(1, 1);
+        s.show_game(1);
         s.step_play(1);
         assert_eq!(s.screen(), &Screen::Viewer { game_id: 1, play_id: 2 });
         s.step_play(-5);

@@ -5,8 +5,6 @@ use nfl_core::style::{self as s, Rgb};
 
 use crate::theme::{self, c};
 
-pub fn truncate(s: &str, n: usize) -> String {
-    if s.chars().count() <= n { s.to_string() } else { s.chars().take(n - 1).collect::<String>() + "…" }
 }
 
 /// Fully rounded chip; `fill` None = surface with border.
