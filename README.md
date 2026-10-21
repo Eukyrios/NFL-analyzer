@@ -107,3 +107,21 @@ fetched in the background so auto-advance doesn't pause.
 `timeline/viewer.html` is built into the program, so restart `cargo run -p nfl-analizer` after editing it.
 
 Team logos are NFL trademarks, used here only for this local demo.
+
+## Running on a phone
+
+The native app (`cargo run`) is the phone app: it opens on a US map, a tap on a state lists its
+teams, a team opens its roster and season matches, and a player opens his stats. The layout
+switches to a phone layout below 700 px width. Preview it on a desktop with
+`NFL_WINDOW=420x860 cargo run`.
+
+**Android** (build on a machine with the Android SDK and NDK):
+
+```sh
+cargo run -p etl --release                 # builds app/assets/nfl.sqlite (needs internet for logos and scores)
+rustup target add aarch64-linux-android
+cargo install cargo-apk
+cargo apk build --release -p app           # APK in target/release/apk/
+```
+
+**iOS** needs a Mac with Xcode and a community setup (eframe doesn't officially support iOS yet).

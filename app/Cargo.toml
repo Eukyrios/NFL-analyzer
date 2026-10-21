@@ -42,5 +42,5 @@ target_sdk_version = 34
 label = "NFL Play Viewer"
 
 [package.metadata.android.application.activity]
-orientation = "landscape"
+orientation = "unspecified"
 config_changes = "orientation|screenSize|keyboardHidden"

@@ -156,22 +156,30 @@ pub fn team(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
             return;
         };
         let info = teams::team(&td.abbr);
-        ui.horizontal(|ui| {
-            logos.widget(ui, &td.abbr, 72.0);
+        let narrow = ui.available_width() < 700.0;
+        ui.horizontal_wrapped(|ui| {
+            logos.widget(ui, &td.abbr, if narrow { 56.0 } else { 72.0 });
             ui.vertical(|ui| {
                 let name = info.map_or(td.abbr.clone(), |t| t.name.to_string());
                 ui.label(RichText::new(name).font(egui::FontId::proportional(theme::sizes().heading + 6.0)).strong());
                 let city = usmap::stadium(&td.abbr).map_or("", |s| s.0);
                 ui.label(RichText::new(format!("{} · {city}", td.abbr)).color(theme::muted()));
             });
-            ui.add_space(16.0);
             let (w, l, t) = td.record();
             let record = if t > 0 { format!("{w}–{l}–{t}") } else { format!("{w}–{l}") };
-            stat(ui, "Record, weeks 1–8", &record);
             let off: u64 = td.games.iter().map(|g| g.plays_off).sum();
             let def: u64 = td.games.iter().map(|g| g.plays_def).sum();
-            stat(ui, "Dropbacks on offense", &labels::thousands(off));
-            stat(ui, "Dropbacks faced", &labels::thousands(def));
+            if narrow {
+                ui.vertical(|ui| {
+                    ui.label(RichText::new(format!("Record {record} · weeks 1–8")).color(theme::muted()).font(theme::small()));
+                    ui.label(RichText::new(format!("{} dropbacks · {} faced", labels::thousands(off), labels::thousands(def))).color(theme::muted()).font(theme::small()));
+                });
+            } else {
+                ui.add_space(16.0);
+                stat(ui, "Record, weeks 1–8", &record);
+                stat(ui, "Dropbacks on offense", &labels::thousands(off));
+                stat(ui, "Dropbacks faced", &labels::thousands(def));
+            }
         });
         ui.add_space(8.0);
         ui.horizontal(|ui| {
@@ -198,16 +206,22 @@ pub fn team(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
                         ui.add_space(8.0);
                         ui.label(RichText::new(g).font(theme::heading()).strong());
                     }
-                    let (rect, resp) = row_rect(ui, 40.0f32.max(theme::sizes().touch_target), false);
+                    let (rect, resp) = row_rect(ui, if narrow { 52.0 } else { 40.0f32.max(theme::sizes().touch_target) }, false);
                     let p = ui.painter();
                     let y = rect.center().y;
                     let jersey = r.jersey.map_or("–".into(), |j| format!("#{j}"));
                     p.text(egui::pos2(rect.left() + 12.0, y), Align2::LEFT_CENTER, jersey, theme::mono(), theme::muted());
+                    if narrow {
+                        p.text(egui::pos2(rect.left() + 56.0, y - 8.0), Align2::LEFT_CENTER, &r.name, theme::body(), Color32::WHITE);
+                        p.circle_filled(egui::pos2(rect.left() + 62.0, y + 10.0), 4.0, c(s::role_color(&r.role)));
+                        p.text(egui::pos2(rect.left() + 72.0, y + 10.0), Align2::LEFT_CENTER, format!("{} · {}", r.position, labels::role(&r.role)), theme::small(), theme::muted());
+                    } else {
                     p.text(egui::pos2(rect.left() + 64.0, y), Align2::LEFT_CENTER, &r.name, theme::body(), Color32::WHITE);
                     p.text(egui::pos2(rect.left() + 280.0, y), Align2::LEFT_CENTER, format!("{} · {}", r.position, labels::position(&r.position)), theme::small(), theme::muted());
                     p.circle_filled(egui::pos2(rect.left() + 470.0, y), 5.0, c(s::role_color(&r.role)));
                     p.text(egui::pos2(rect.left() + 482.0, y), Align2::LEFT_CENTER, labels::role(&r.role), theme::small(), Color32::WHITE);
-                    p.text(egui::pos2(rect.right() - 12.0, y), Align2::RIGHT_CENTER, format!("{} snaps", labels::thousands(r.snaps)), theme::mono(), theme::muted());
+                    }
+                    p.text(egui::pos2(rect.right() - 12.0, y), Align2::RIGHT_CENTER, format!("{}{}", labels::thousands(r.snaps), if narrow { "" } else { " snaps" }), theme::mono(), theme::muted());
                     if resp.clicked() {
                         action = Some(Action::Player(r.nfl_id));
                     }
@@ -216,26 +230,36 @@ pub fn team(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
             }
             TeamTab::Games => {
                 for g in &td.games {
-                    let (rect, resp) = row_rect(ui, 48.0f32.max(theme::sizes().touch_target), false);
+                    let (rect, resp) = row_rect(ui, if narrow { 64.0 } else { 48.0f32.max(theme::sizes().touch_target) }, false);
                     let p = ui.painter();
                     let y = rect.center().y;
-                    p.text(egui::pos2(rect.left() + 12.0, y), Align2::LEFT_CENTER, format!("Week {}", g.game.week), theme::body(), Color32::WHITE);
-                    logos.paint(p, egui::Rect::from_center_size(egui::pos2(rect.left() + 110.0, y), egui::vec2(30.0, 30.0)), &g.opponent, 1.0);
-                    p.text(egui::pos2(rect.left() + 132.0, y), Align2::LEFT_CENTER, g.opponent_label(), theme::body(), Color32::WHITE);
                     let mut when = g.game.kickoff_label();
                     if g.game.is_neutral() {
                         when += &format!(" · Neutral · {}", g.game.stadium.as_deref().unwrap_or("neutral site"));
                     }
-                    p.text(egui::pos2(rect.left() + 230.0, y), Align2::LEFT_CENTER, when, theme::small(), theme::muted());
-                    if let Some(res) = g.result_label() {
-                        let col = match res.chars().next() {
-                            Some('W') => s::RESULT_C,
-                            Some('L') => s::RESULT_S,
-                            _ => s::RESULT_I,
-                        };
-                        p.text(egui::pos2(rect.right() - 230.0, y), Align2::LEFT_CENTER, res, theme::mono(), c(col));
+                    let res = g.result_label();
+                    let rcol = res.as_deref().map(|r| match r.chars().next() {
+                        Some('W') => s::RESULT_C,
+                        Some('L') => s::RESULT_S,
+                        _ => s::RESULT_I,
+                    });
+                    if narrow {
+                        logos.paint(p, egui::Rect::from_center_size(egui::pos2(rect.left() + 28.0, y), egui::vec2(34.0, 34.0)), &g.opponent, 1.0);
+                        p.text(egui::pos2(rect.left() + 56.0, y - 10.0), Align2::LEFT_CENTER, format!("Wk {} · {}", g.game.week, g.opponent_label()), theme::body(), Color32::WHITE);
+                        p.text(egui::pos2(rect.left() + 56.0, y + 10.0), Align2::LEFT_CENTER, &when, theme::small(), theme::muted());
+                        if let (Some(res), Some(col)) = (res, rcol) {
+                            p.text(egui::pos2(rect.right() - 12.0, y), Align2::RIGHT_CENTER, res, theme::mono(), c(col));
+                        }
+                    } else {
+                        p.text(egui::pos2(rect.left() + 12.0, y), Align2::LEFT_CENTER, format!("Week {}", g.game.week), theme::body(), Color32::WHITE);
+                        logos.paint(p, egui::Rect::from_center_size(egui::pos2(rect.left() + 110.0, y), egui::vec2(30.0, 30.0)), &g.opponent, 1.0);
+                        p.text(egui::pos2(rect.left() + 132.0, y), Align2::LEFT_CENTER, g.opponent_label(), theme::body(), Color32::WHITE);
+                        p.text(egui::pos2(rect.left() + 230.0, y), Align2::LEFT_CENTER, &when, theme::small(), theme::muted());
+                        if let (Some(res), Some(col)) = (res, rcol) {
+                            p.text(egui::pos2(rect.right() - 230.0, y), Align2::LEFT_CENTER, res, theme::mono(), c(col));
+                        }
+                        p.text(egui::pos2(rect.right() - 12.0, y), Align2::RIGHT_CENTER, format!("{} off · {} def ▶", g.plays_off, g.plays_def), theme::small(), theme::muted());
                     }
-                    p.text(egui::pos2(rect.right() - 12.0, y), Align2::RIGHT_CENTER, format!("{} off · {} def ▶", g.plays_off, g.plays_def), theme::small(), theme::muted());
                     if resp.clicked() {
                         action = Some(Action::Game(g.game.game_id));
                     }

@@ -88,8 +88,17 @@ fn fatal(ui: &mut egui::Ui, msg: &str) {
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn run_desktop() -> eframe::Result<()> {
     let db = platform::open_desktop();
+    // NFL_WINDOW=420x860 previews the phone layout on a desktop.
+    let preview = std::env::var("NFL_WINDOW").ok().and_then(|v| {
+        let (w, h) = v.split_once('x')?;
+        Some([w.parse::<f32>().ok()?, h.parse::<f32>().ok()?])
+    });
+    let (size, min) = match preview {
+        Some(sz) => (sz, [300.0, 500.0]),
+        None => ([1400.0, 860.0], [900.0, 560.0]),
+    };
     let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1400.0, 860.0]).with_min_inner_size([900.0, 560.0]).with_title("NFL Play Viewer"),
+        viewport: egui::ViewportBuilder::default().with_inner_size(size).with_min_inner_size(min).with_title("NFL Play Viewer"),
         ..Default::default()
     };
     eframe::run_native("NFL Play Viewer", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, db)))))

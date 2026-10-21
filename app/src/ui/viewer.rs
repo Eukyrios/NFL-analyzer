@@ -21,7 +21,9 @@ pub fn show(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         header(ui, st, logos);
         let avail = ui.available_size();
-        let field_h = (avail.y - 430.0).max(300.0);
+        let narrow = avail.x < 700.0;
+        // Phones: a tall (portrait) field, the rest scrolls below it.
+        let field_h = if narrow { (avail.x * 1.45).min(avail.y * 0.8) } else { (avail.y - 430.0).max(300.0) };
         let (rect, resp) = ui.allocate_exact_size(egui::vec2(avail.x, field_h), Sense::click());
         let portrait = rect.height() > rect.width() * 1.2;
         let vp = Viewport::fit(rect.left(), rect.top(), rect.width(), rect.height(), portrait);
@@ -58,6 +60,22 @@ fn header(ui: &mut egui::Ui, st: &AppState, logos: &Logos) {
     let (g, pl) = (&v.game, &v.play);
     let (first, second, sep) = if g.is_neutral() { (&g.home, &g.away, "vs") } else { (&g.away, &g.home, "@") };
     let score = |t: &str| if t == g.home { pl.home_score } else { pl.away_score };
+    if ui.available_width() < 700.0 {
+        ui.horizontal_wrapped(|ui| {
+            logos.widget(ui, first, 30.0);
+            ui.label(RichText::new(format!("{first} {sep} {second}")).font(theme::heading()).strong());
+            logos.widget(ui, second, 30.0);
+        });
+        ui.label(RichText::new(format!("Week {} · {} · {} plays", g.week, g.kickoff_label(), st.plays.len())).color(theme::muted()).font(theme::small()));
+        let w = (ui.available_width() - 72.0) / 3.0;
+        ui.horizontal(|ui| {
+            score_card(ui, logos, first, score(first), pl.offense == *first, w * 0.85);
+            situation_card(ui, pl, w * 1.3);
+            score_card(ui, logos, second, score(second), pl.offense == *second, w * 0.85);
+        });
+        ui.add_space(8.0);
+        return;
+    }
     ui.columns(2, |cols| {
         cols[0].vertical(|ui| {
             ui.horizontal(|ui| {
@@ -76,9 +94,9 @@ fn header(ui: &mut egui::Ui, st: &AppState, logos: &Logos) {
         });
         cols[1].with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
             // Right to left: second team, situation, first team.
-            score_card(ui, logos, second, score(second), pl.offense == *second);
-            situation_card(ui, pl);
-            score_card(ui, logos, first, score(first), pl.offense == *first);
+            score_card(ui, logos, second, score(second), pl.offense == *second, 140.0);
+            situation_card(ui, pl, 190.0);
+            score_card(ui, logos, first, score(first), pl.offense == *first, 140.0);
         });
     });
     ui.add_space(8.0);
@@ -89,12 +107,12 @@ fn card_frame() -> egui::Frame {
         .fill(c(s::SURFACE))
         .stroke(Stroke::new(1.0, c(s::BORDER)))
         .corner_radius(egui::CornerRadius::same(s::RADIUS_PANEL as u8))
-        .inner_margin(egui::Margin::symmetric(12, 8))
+        .inner_margin(egui::Margin::symmetric(8, 6))
 }
 
-fn score_card(ui: &mut egui::Ui, logos: &Logos, team: &str, score: i64, has_ball: bool) {
+fn score_card(ui: &mut egui::Ui, logos: &Logos, team: &str, score: i64, has_ball: bool, w: f32) {
     card_frame().show(ui, |ui| {
-        ui.allocate_ui_with_layout(egui::vec2(140.0, 34.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        ui.allocate_ui_with_layout(egui::vec2(w, 34.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
             logos.widget(ui, team, 28.0);
             ui.label(RichText::new(team).strong());
             if has_ball {
@@ -106,9 +124,9 @@ fn score_card(ui: &mut egui::Ui, logos: &Logos, team: &str, score: i64, has_ball
     });
 }
 
-fn situation_card(ui: &mut egui::Ui, pl: &nfl_core::dal::Play) {
+fn situation_card(ui: &mut egui::Ui, pl: &nfl_core::dal::Play, w: f32) {
     card_frame().show(ui, |ui| {
-        ui.allocate_ui_with_layout(egui::vec2(190.0, 34.0), egui::Layout::top_down(egui::Align::Center), |ui| {
+        ui.allocate_ui_with_layout(egui::vec2(w, 34.0), egui::Layout::top_down(egui::Align::Center), |ui| {
             ui.label(RichText::new(format!("{} {}", labels::quarter(pl.quarter), pl.game_clock)).font(theme::mono()).strong());
             ui.label(RichText::new(format!("{} · {}", pl.offense, pl.situation())).color(theme::muted()).font(theme::small()));
         });
@@ -297,7 +315,7 @@ fn timeline(ui: &mut egui::Ui, st: &mut AppState) {
     let Some(v) = &mut st.viewer else { return };
     let pb: &mut Playback = &mut v.playback;
     ui.add_space(6.0);
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let big = egui::vec2(theme::sizes().touch_target.max(36.0), theme::sizes().touch_target.max(32.0));
         if ui.add(egui::Button::new(s::ICON_PREV).min_size(big)).on_hover_text("Previous play").clicked() {
             st_step(ui, -1);
