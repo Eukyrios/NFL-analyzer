@@ -1,0 +1,4 @@
+"gameId","playId","nflId","pff_role","pff_positionLinedUp","pff_hit","pff_hurry","pff_sack","pff_beatenByDefender","pff_hitAllowed","pff_hurryAllowed","pff_sackAllowed","pff_nflIdBlockedPlayer","pff_blockType","pff_backFieldBlock"
+2021090900,97,25511,"Pass","QB",NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+2021090900,97,35459,"Pass Rush","LEO",0,1,0,NA,NA,NA,NA,NA,NA,NA
+2021090900,137,35459,"Pass Rush","LEO",0,0,1,NA,NA,NA,NA,NA,NA,NA

@@ -1,0 +1,12 @@
+[package]
+name = "nfl_core"
+version = "0.1.0"
+edition = "2021"
+description = "GUI-free data access, filters, stats, geometry and style tokens for the native NFL play viewer"
+
+[dependencies]
+rusqlite.workspace = true
+lz4_flex.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

@@ -21,3 +21,22 @@ opt-level = 3
 
 [profile.dev]
 opt-level = 1
+
+# Native app crates (the root package above is the existing web app and is unchanged).
+[workspace]
+members = ["etl", "nfl_core", "app"]
+# Plain `cargo run` launches the native app; the web app is `cargo run -p nfl-analizer`.
+default-members = ["app"]
+resolver = "2"
+
+[workspace.dependencies]
+rusqlite = { version = "=0.32.1", features = ["bundled"] }
+csv = "=1.4.0"
+serde = { version = "=1.0.229", features = ["derive"] }
+ureq = "=2.12.1"
+image = { version = "=0.25.6", default-features = false, features = ["png"] }
+lz4_flex = { version = "=0.11.6", default-features = false, features = ["std", "safe-encode", "safe-decode"] }
+proptest = "=1.6.0"
+eframe = { version = "=0.31.1", default-features = false, features = ["default_fonts", "glow"] }
+egui = "=0.31.1"
+egui_plot = "=0.32.1"

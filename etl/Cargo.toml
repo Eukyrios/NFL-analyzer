@@ -1,0 +1,19 @@
+[package]
+name = "etl"
+version = "0.1.0"
+edition = "2021"
+description = "Builds the compact, read-only nfl.sqlite for the native app from data/"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "etl"
+path = "src/main.rs"
+
+[dependencies]
+nfl_core = { path = "../nfl_core" }
+rusqlite.workspace = true
+csv.workspace = true
+ureq.workspace = true
+image.workspace = true

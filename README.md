@@ -30,8 +30,10 @@ else to download.
 ```sh
 git clone https://github.com/Eukyrios/NFL-analyzer.git
 cd NFL-analyzer
-cargo run
+cargo run -p nfl-analizer
 ```
+
+Plain `cargo run` starts the native app (egui). The commands here are for the web app.
 
 The first run imports `data/` into `nfl.db` (SQLite, about 1.2 GB, about 20 s). The app then
 serves http://localhost:8000 and opens your browser. Later runs start straight away. Press
@@ -40,10 +42,10 @@ Ctrl+C to stop.
 Other commands:
 
 ```sh
-cargo run -- serve --port 9000 --no-open    # other port (the next free one is used if it's taken), no browser
-cargo run -- import                         # rebuild nfl.db from the CSVs
-cargo run -- --db /path/to/nfl.db           # use a database somewhere else
-cargo run -- import --data /path/to/data    # import CSVs from another folder
+cargo run -p nfl-analizer -- serve --port 9000 --no-open    # other port (the next free one is used if it's taken), no browser
+cargo run -p nfl-analizer -- import                         # rebuild nfl.db from the CSVs
+cargo run -p nfl-analizer -- --db /path/to/nfl.db           # use a database somewhere else
+cargo run -p nfl-analizer -- import --data /path/to/data    # import CSVs from another folder
 ```
 
 **Keys:** Space to play/pause, ← / → to step one frame, ↑ / ↓ for the previous/next play. Hover
@@ -102,6 +104,6 @@ fetched in the background so auto-advance doesn't pause.
 | `src/logos.rs` | Downloads team logos and caches them in the database |
 | `timeline/viewer.html` | The replay page: canvas field, controls and timeline |
 
-`timeline/viewer.html` is built into the program, so restart `cargo run` after editing it.
+`timeline/viewer.html` is built into the program, so restart `cargo run -p nfl-analizer` after editing it.
 
 Team logos are NFL trademarks, used here only for this local demo.

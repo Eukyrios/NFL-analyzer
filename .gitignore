@@ -1,3 +1,6 @@
 target/
 nfl.db
 nfl.db.importing
+data/*.sqlite
+data/*.sqlite.building
+app/assets/*.sqlite
