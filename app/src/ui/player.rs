@@ -85,11 +85,10 @@ pub fn show(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
                 ui.add_space(4.0);
             }
         });
-        let id = pl.nfl_id;
-        if open_team && !team.is_empty() {
+                if open_team && !team.is_empty() {
             st.open_team(&team);
-        } else if let Some((gid, t)) = open_game {
-            st.show_game_plays(gid, Some(&t), Some(id));
+        } else if let Some((gid, _)) = open_game {
+            st.show_game(gid);
         }
     });
 }

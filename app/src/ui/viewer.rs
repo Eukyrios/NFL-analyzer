@@ -7,8 +7,7 @@ use nfl_core::labels;
 use nfl_core::style::{self as s, Rgb};
 use nfl_core::teams::primary;
 
-use super::filters::result_text;
-use super::widgets::chip;
+use super::widgets::{chip, result_text};
 use crate::logos::Logos;
 use crate::state::{AppState, ViewerData};
 use crate::theme::{self, c, ca};
@@ -19,9 +18,10 @@ pub fn show(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
             ui.label("Loading…");
             return;
         }
+        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
         header(ui, st, logos);
         let avail = ui.available_size();
-        let field_h = (avail.y - 150.0).max(200.0);
+        let field_h = (avail.y - 430.0).max(300.0);
         let (rect, resp) = ui.allocate_exact_size(egui::vec2(avail.x, field_h), Sense::click());
         let portrait = rect.height() > rect.width() * 1.2;
         let vp = Viewport::fit(rect.left(), rect.top(), rect.width(), rect.height(), portrait);
@@ -48,30 +48,70 @@ pub fn show(ctx: &egui::Context, st: &mut AppState, logos: &Logos) {
         }
         timeline(ui, st);
         details(ui, st);
+        game_timeline(ui, st, logos);
+        });
     });
 }
 
 fn header(ui: &mut egui::Ui, st: &AppState, logos: &Logos) {
     let Some(v) = &st.viewer else { return };
     let (g, pl) = (&v.game, &v.play);
-    ui.horizontal(|ui| {
-        let (first, second) = if g.is_neutral() { (&g.home, &g.away) } else { (&g.away, &g.home) };
-        logos.widget(ui, first, 36.0);
-        ui.label(RichText::new(g.matchup()).font(theme::heading()).strong());
-        logos.widget(ui, second, 36.0);
-        if g.is_neutral() {
-            chip(ui, &format!("Neutral · {}", g.stadium.clone().unwrap_or_default()), None);
-        }
-        ui.add_space(12.0);
-        let score = if g.is_neutral() {
-            format!("{} {} – {} {}", g.home, pl.home_score, pl.away_score, g.away)
-        } else {
-            format!("{} {} – {} {}", g.away, pl.away_score, pl.home_score, g.home)
-        };
-        ui.label(RichText::new(score).font(theme::mono()));
-        ui.label(RichText::new(format!("{} {}", labels::quarter(pl.quarter), pl.game_clock)).font(theme::mono()));
-        ui.label(RichText::new(pl.situation()).color(theme::muted()));
-        ui.label(RichText::new(format!("Week {} · {}", g.week, g.kickoff_label())).color(theme::muted()).font(theme::small()));
+    let (first, second, sep) = if g.is_neutral() { (&g.home, &g.away, "vs") } else { (&g.away, &g.home, "@") };
+    let score = |t: &str| if t == g.home { pl.home_score } else { pl.away_score };
+    ui.columns(2, |cols| {
+        cols[0].vertical(|ui| {
+            ui.horizontal(|ui| {
+                logos.widget(ui, first, 36.0);
+                ui.label(RichText::new(format!("{first} {sep} {second}")).font(theme::heading()).strong());
+                logos.widget(ui, second, 36.0);
+                if g.is_neutral() {
+                    chip(ui, &format!("Neutral · {}", g.stadium.clone().unwrap_or_default()), None);
+                }
+            });
+            ui.label(
+                RichText::new(format!("Week {} · {} · {} dropback plays", g.week, g.kickoff_label(), st.plays.len()))
+                    .color(theme::muted())
+                    .font(theme::small()),
+            );
+        });
+        cols[1].with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+            // Right to left: second team, situation, first team.
+            score_card(ui, logos, second, score(second), pl.offense == *second);
+            situation_card(ui, pl);
+            score_card(ui, logos, first, score(first), pl.offense == *first);
+        });
+    });
+    ui.add_space(8.0);
+}
+
+fn card_frame() -> egui::Frame {
+    egui::Frame::new()
+        .fill(c(s::SURFACE))
+        .stroke(Stroke::new(1.0, c(s::BORDER)))
+        .corner_radius(egui::CornerRadius::same(s::RADIUS_PANEL as u8))
+        .inner_margin(egui::Margin::symmetric(12, 8))
+}
+
+fn score_card(ui: &mut egui::Ui, logos: &Logos, team: &str, score: i64, has_ball: bool) {
+    card_frame().show(ui, |ui| {
+        ui.allocate_ui_with_layout(egui::vec2(140.0, 34.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            logos.widget(ui, team, 28.0);
+            ui.label(RichText::new(team).strong());
+            if has_ball {
+                let (r, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), Sense::hover());
+                ui.painter().circle_filled(r.center(), 4.0, c(s::LOS));
+            }
+            ui.label(RichText::new(score.to_string()).font(egui::FontId::proportional(theme::sizes().heading + 4.0)).strong());
+        });
+    });
+}
+
+fn situation_card(ui: &mut egui::Ui, pl: &nfl_core::dal::Play) {
+    card_frame().show(ui, |ui| {
+        ui.allocate_ui_with_layout(egui::vec2(190.0, 34.0), egui::Layout::top_down(egui::Align::Center), |ui| {
+            ui.label(RichText::new(format!("{} {}", labels::quarter(pl.quarter), pl.game_clock)).font(theme::mono()).strong());
+            ui.label(RichText::new(format!("{} · {}", pl.offense, pl.situation())).color(theme::muted()).font(theme::small()));
+        });
     });
 }
 
@@ -253,6 +293,7 @@ fn draw_entities(p: &Painter, vp: &Viewport, v: &ViewerData, trails: bool, by_ro
 }
 
 fn timeline(ui: &mut egui::Ui, st: &mut AppState) {
+    let (mut st_trails, mut st_roles, mut st_auto) = (st.trails, st.color_by_role, st.auto_advance);
     let Some(v) = &mut st.viewer else { return };
     let pb: &mut Playback = &mut v.playback;
     ui.add_space(6.0);
@@ -268,14 +309,16 @@ fn timeline(ui: &mut egui::Ui, st: &mut AppState) {
         if ui.add(egui::Button::new(s::ICON_NEXT).min_size(big)).on_hover_text("Next play").clicked() {
             st_step(ui, 1);
         }
-        for sp in Playback::SPEEDS {
-            let sel = (pb.speed - sp).abs() < 1e-3;
-            if ui.add(egui::Button::new(format!("{sp}×")).fill(if sel { c(s::NAVY) } else { c(s::SURFACE) }).min_size(egui::vec2(44.0, big.y))).clicked() {
-                pb.speed = sp;
-            }
-        }
         let t = pb.from_snap(v.snap);
-        ui.label(RichText::new(format!("{:+.1} s from snap · frame {:>2}/{}", t, pb.frame.round() as usize + 1, pb.frames)).font(theme::mono()));
+        ui.label(RichText::new(format!("{:+.1}s from snap", t)).font(theme::mono()));
+        egui::ComboBox::from_id_salt("speed").width(64.0).selected_text(format!("{}×", pb.speed)).show_ui(ui, |ui| {
+            for sp in Playback::SPEEDS {
+                ui.selectable_value(&mut pb.speed, sp, format!("{sp}×"));
+            }
+        });
+        ui.checkbox(&mut st_trails, "Trails");
+        ui.checkbox(&mut st_roles, "Color by role");
+        ui.checkbox(&mut st_auto, "Auto-advance");
         if ui.input(|i| i.key_pressed(egui::Key::Space)) {
             pb.toggle();
         }
@@ -286,6 +329,11 @@ fn timeline(ui: &mut egui::Ui, st: &mut AppState) {
             pb.step(-1);
         }
     });
+    st.trails = st_trails;
+    st.color_by_role = st_roles;
+    st.auto_advance = st_auto;
+    let Some(v) = &mut st.viewer else { return };
+    let pb: &mut Playback = &mut v.playback;
     // Track
     let (rect, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 46.0), Sense::click_and_drag());
     let p = ui.painter();
@@ -325,6 +373,9 @@ fn details(ui: &mut egui::Ui, st: &mut AppState) {
     if let Some(by) = ui.ctx().data_mut(|d| d.remove_temp::<i32>(egui::Id::new("step_play"))) {
         st.step_play(by);
     }
+    if let Some((g, p)) = ui.ctx().data_mut(|d| d.remove_temp::<(i64, i64)>(egui::Id::new("jump_play"))) {
+        st.jump_to_play(g, p);
+    }
     let Some(v) = &st.viewer else { return };
     let pl = &v.play;
     ui.horizontal_wrapped(|ui| {
@@ -346,18 +397,119 @@ fn details(ui: &mut egui::Ui, st: &mut AppState) {
         }
     });
     ui.label(RichText::new(&pl.description).color(theme::muted()));
-    let mut trails = st.trails;
-    let mut roles = st.color_by_role;
-    ui.horizontal(|ui| {
-        ui.toggle_value(&mut trails, "Trails");
-        ui.toggle_value(&mut roles, "Color by role");
-        if roles {
+    let Some(v) = &st.viewer else { return };
+    let home = v.home().to_string();
+    let away = if v.game.home == v.game.away { String::new() } else { v.game.away.clone() };
+    let neutral = v.game.is_neutral();
+    ui.horizontal_wrapped(|ui| {
+        let by_role = st.color_by_role;
+        if by_role {
             for (k, col) in [("Pass", s::ROLE_PASS), ("Pass Block", s::ROLE_BLOCK), ("Pass Route", s::ROLE_ROUTE), ("Pass Rush", s::ROLE_RUSH), ("Coverage", s::ROLE_COVERAGE)] {
                 chip(ui, labels::role(k), Some(col));
             }
+        } else {
+            let suffix = |w: &str| if neutral { String::new() } else { format!(" ({w})") };
+            dot(ui, c(primary(&home)), Color32::WHITE, &format!("{home}{}", suffix("home")));
+            dot(ui, Color32::WHITE, c(primary(&away)), &format!("{away}{}", suffix("away")));
         }
-        ui.label(RichText::new("Blue: line of scrimmage · Yellow: line to gain · Tap a player for stats").color(theme::muted()).font(theme::small()));
+        dot(ui, c(s::BALL), c(s::BALL), "Ball");
+        swatch(ui, c(s::LOS));
+        ui.label(RichText::new("Line of scrimmage").color(theme::muted()).font(theme::small()));
+        swatch(ui, c(s::FIRST_DOWN));
+        ui.label(RichText::new("Line to gain").color(theme::muted()).font(theme::small()));
     });
-    st.trails = trails;
-    st.color_by_role = roles;
+}
+
+fn swatch(ui: &mut egui::Ui, col: Color32) {
+    let (r, _) = ui.allocate_exact_size(egui::vec2(14.0, 12.0), Sense::hover());
+    ui.painter().line_segment([r.left_center(), r.right_center()], Stroke::new(3.0, col));
+}
+
+fn dot(ui: &mut egui::Ui, fill: Color32, stroke: Color32, label: &str) {
+    let (r, _) = ui.allocate_exact_size(egui::vec2(12.0, 12.0), Sense::hover());
+    ui.painter().circle_filled(r.center(), 5.0, fill);
+    ui.painter().circle_stroke(r.center(), 5.0, Stroke::new(2.0, stroke));
+    ui.label(RichText::new(label).color(theme::muted()).font(theme::small()));
+}
+
+/// "Game timeline · dropback plays": one bar per play grouped by quarter.
+/// Bars point up for the home team's possessions and down for the away
+/// team's; color shows the result and height the yards gained.
+fn game_timeline(ui: &mut egui::Ui, st: &AppState, logos: &Logos) {
+    let Some(v) = &st.viewer else { return };
+    let home = v.home().to_string();
+    let away = v.game.away.clone();
+    let plays = &st.plays;
+    if plays.is_empty() {
+        return;
+    }
+    let cur = (v.play.game_id, v.play.play_id);
+    ui.add_space(8.0);
+    let mut jump = None;
+    card_frame().show(ui, |ui| {
+        ui.set_min_width(ui.available_width());
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new("Game timeline · dropback plays").strong());
+            for (code, label) in [("C", "Complete"), ("I", "Incomplete"), ("S", "Sack"), ("IN", "Interception"), ("R", "Scramble")] {
+                dot(ui, c(s::result_color(code)), c(s::result_color(code)), label);
+            }
+            ui.label(RichText::new("· bar height = yards gained").color(theme::muted()).font(theme::small()));
+        });
+        let h = 84.0;
+        let (rect, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), h), Sense::click());
+        let p = ui.painter_at(rect);
+        let left = rect.left() + 34.0;
+        let mid = rect.center().y + 6.0;
+        logos.paint(&p, Rect::from_center_size(egui::pos2(rect.left() + 14.0, mid - 22.0), egui::vec2(20.0, 20.0)), &home, 1.0);
+        logos.paint(&p, Rect::from_center_size(egui::pos2(rect.left() + 14.0, mid + 22.0), egui::vec2(20.0, 20.0)), &away, 1.0);
+        p.line_segment([egui::pos2(left, mid), egui::pos2(rect.right(), mid)], Stroke::new(1.0, c(s::BORDER)));
+        let gap = 8.0;
+        let n = plays.len() as f32;
+        let unit = (rect.right() - left - gap * 3.0) / n;
+        let mut x = left;
+        let mut hit: Option<usize> = None;
+        let ptr = resp.hover_pos().or_else(|| resp.interact_pointer_pos());
+        let mut q_start = 0;
+        while q_start < plays.len() {
+            let q = plays[q_start].quarter;
+            let q_end = plays[q_start..].iter().position(|p| p.quarter != q).map_or(plays.len(), |k| q_start + k);
+            p.text(egui::pos2(x, rect.top()), Align2::LEFT_TOP, labels::quarter(q), theme::small(), theme::muted());
+            for (i, pl) in plays.iter().enumerate().take(q_end).skip(q_start) {
+                let bar = Rect::from_min_size(egui::pos2(x, rect.top() + 16.0), egui::vec2((unit - 1.0).max(1.5), h - 16.0));
+                let yds = pl.play_result.unwrap_or(0).unsigned_abs().min(27) as f32;
+                let bh = 3.0 + yds;
+                let col = pl.pass_result.as_deref().map_or(c(s::UNKNOWN_ROLE), |r| c(s::result_color(r)));
+                let r = if pl.offense == home {
+                    Rect::from_min_max(egui::pos2(bar.left(), mid - bh), egui::pos2(bar.right(), mid))
+                } else {
+                    Rect::from_min_max(egui::pos2(bar.left(), mid), egui::pos2(bar.right(), mid + bh))
+                };
+                if (pl.game_id, pl.play_id) == cur {
+                    p.rect_filled(Rect::from_min_max(egui::pos2(bar.left() - 1.0, bar.top()), egui::pos2(bar.right() + 1.0, bar.bottom())), 2.0, theme::alpha(s::RED, 0.35));
+                }
+                p.rect_filled(r, 1.0, col);
+                if ptr.is_some_and(|q| q.x >= x && q.x < x + unit) {
+                    hit = Some(i);
+                }
+                x += unit;
+            }
+            x += gap;
+            q_start = q_end;
+        }
+        if let Some(i) = hit {
+            let pl = &plays[i];
+            let (res, _) = result_text(pl);
+            let tip = format!("{} {} · {} · {}\n{}", labels::quarter(pl.quarter), pl.game_clock, pl.offense, res, pl.description);
+            if resp.hovered() {
+                resp.clone().on_hover_text(tip);
+            }
+            if resp.clicked() {
+                jump = Some((pl.game_id, pl.play_id));
+            }
+        }
+    });
+    if let Some(j) = jump {
+        ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("jump_play"), j));
+        ui.ctx().request_repaint();
+    }
 }

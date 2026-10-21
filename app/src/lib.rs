@@ -39,7 +39,6 @@ impl eframe::App for App {
             return;
         }
         match self.state.screen().clone() {
-            Screen::Filters => ui::filters::show(ctx, &mut self.state, &self.logos),
             Screen::Map => ui::team::map(ctx, &mut self.state, &self.logos),
             Screen::Team { .. } => ui::team::team(ctx, &mut self.state, &self.logos),
             Screen::Viewer { .. } => ui::viewer::show(ctx, &mut self.state, &self.logos),
@@ -62,16 +61,6 @@ fn top_bar(ctx: &egui::Context, st: &mut AppState) {
                     st.back();
                 }
                 ui.label(RichText::new("NFL Play Viewer").font(theme::heading()).color(Color32::WHITE).strong());
-                ui.add_space(16.0);
-                let root = st.screen().clone();
-                for (label, scr) in [("Plays", Screen::Filters), ("Teams", Screen::Map)] {
-                    let sel = std::mem::discriminant(&root) == std::mem::discriminant(&scr) && !st.can_go_back();
-                    let b = egui::Button::new(RichText::new(label).color(Color32::WHITE))
-                        .fill(if sel { theme::c(s::RED) } else { theme::alpha(s::BG, 0.35) });
-                    if ui.add(b).clicked() {
-                        st.set_root(scr);
-                    }
-                }
                 if let Some(e) = st.error.clone() {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("✖").clicked() {

@@ -4,14 +4,13 @@
 use std::collections::HashMap;
 
 use nfl_core::dal::{Db, Game, Play, PlayTracking};
-use nfl_core::filter::{Dim, Facet, FacetOption, PlayFilter, Side};
+use nfl_core::filter::{Dim, PlayFilter};
 use nfl_core::geometry::{dropback_span, frame_at, hit_test, phase_markers, Marker, Playback, Viewport};
-use nfl_core::roster::{Lineup, PlayerGame, RosterEntry, TeamGame};
+use nfl_core::roster::{PlayerGame, RosterEntry, TeamGame};
 use nfl_core::stats::PlayerStats;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
-    Filters,
     Map,
     Team { abbr: String },
     Viewer { game_id: i64, play_id: i64 },
@@ -21,7 +20,6 @@ pub enum Screen {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TeamTab {
     #[default]
-    Lineup,
     Roster,
     Games,
 }
@@ -54,7 +52,6 @@ pub struct TeamData {
     pub abbr: String,
     pub games: Vec<TeamGame>,
     pub roster: Vec<RosterEntry>,
-    pub lineup: Lineup,
     pub tab: TeamTab,
 }
 
@@ -74,21 +71,6 @@ pub struct PlayerData {
     pub games: Vec<PlayerGame>,
 }
 
-/// Dropdowns whose counts are kept up to date on every filter change.
-pub const FACETS: [Dim; 11] = [
-    Dim::Week,
-    Dim::Game,
-    Dim::Team,
-    Dim::Side,
-    Dim::PassResult,
-    Dim::DropbackType,
-    Dim::Down,
-    Dim::Quarter,
-    Dim::Coverage,
-    Dim::CoverageType,
-    Dim::PlayAction,
-];
-
 pub struct AppState {
     pub db: Option<Db>,
     /// Fatal problem (missing DB, wrong schema): shown instead of the app.
@@ -96,20 +78,16 @@ pub struct AppState {
     /// Last non-fatal error, shown as a banner.
     pub error: Option<String>,
     stack: Vec<Screen>,
-    pub filter: PlayFilter,
+    /// Plays of the game being watched, in game order.
     pub plays: Vec<Play>,
-    pub facets: HashMap<Dim, Facet>,
     pub games: HashMap<i64, Game>,
-    pub picker_team: Option<String>,
-    pub picker_position: Option<String>,
-    pub positions: Vec<FacetOption>,
-    pub players: Vec<FacetOption>,
     pub selected_play: Option<(i64, i64)>,
     pub viewer: Option<ViewerData>,
     pub team: Option<TeamData>,
     pub player: Option<PlayerData>,
     pub trails: bool,
     pub color_by_role: bool,
+    pub auto_advance: bool,
     /// State selected on the Teams map (two-letter code).
     pub map_state: Option<String>,
 }
@@ -124,21 +102,16 @@ impl AppState {
             db,
             fatal,
             error: None,
-            stack: vec![Screen::Filters],
-            filter: PlayFilter::default(),
+            stack: vec![Screen::Map],
             plays: Vec::new(),
-            facets: HashMap::new(),
             games: HashMap::new(),
-            picker_team: None,
-            picker_position: None,
-            positions: Vec::new(),
-            players: Vec::new(),
             selected_play: None,
             viewer: None,
             team: None,
             player: None,
-            trails: false,
+            trails: true,
             color_by_role: false,
+            auto_advance: true,
             map_state: None,
         };
         if let Some(db) = &s.db {
@@ -147,12 +120,11 @@ impl AppState {
                 Err(e) => s.fatal = Some(e.to_string()),
             }
         }
-        s.refresh();
         s
     }
 
     pub fn screen(&self) -> &Screen {
-        self.stack.last().unwrap_or(&Screen::Filters)
+        self.stack.last().unwrap_or(&Screen::Map)
     }
 
     pub fn can_go_back(&self) -> bool {
@@ -169,18 +141,13 @@ impl AppState {
         }
     }
 
-    /// Back one screen; the root (Filters or Map) stays.
+    /// Back one screen; the map stays as the root.
     pub fn back(&mut self) {
         if self.stack.len() > 1 {
             self.stack.pop();
             let top = self.screen().clone();
             self.ensure_loaded(&top);
         }
-    }
-
-    /// Switches the root tab (Plays / Teams) and clears the history.
-    pub fn set_root(&mut self, s: Screen) {
-        self.stack = vec![s];
     }
 
     fn push(&mut self, s: Screen) {
@@ -207,89 +174,23 @@ impl AppState {
                     self.load_team(abbr);
                 }
             }
-            Screen::Filters | Screen::Map => {}
+            Screen::Map => {}
         }
     }
 
-    // ---------- filters ----------
-
-    pub fn set_filter(&mut self, d: Dim, v: Option<String>) {
-        self.filter.set(d, v);
-        self.refresh();
-    }
-
-    pub fn set_side(&mut self, side: Side) {
-        self.filter.side = side;
-        self.refresh();
-    }
-
-    pub fn clear_filters(&mut self) {
-        self.filter = PlayFilter::default();
-        self.picker_team = None;
-        self.picker_position = None;
-        self.refresh();
-    }
-
-    pub fn set_picker_team(&mut self, t: Option<String>) {
-        self.picker_team = t;
-        self.picker_position = None;
-        self.refresh_picker();
-    }
-
-    pub fn set_picker_position(&mut self, p: Option<String>) {
-        self.picker_position = p;
-        self.refresh_picker();
-    }
-
-    /// Re-runs the play query and every facet's counts.
-    pub fn refresh(&mut self) {
+    /// Opens a game: loads its dropback plays and shows the first one.
+    pub fn show_game(&mut self, game_id: i64) {
         let Some(db) = &self.db else { return };
-        let plays = db.query_plays(&self.filter);
-        let facets: nfl_core::Result<HashMap<Dim, Facet>> =
-            FACETS.iter().map(|&d| Ok((d, db.facet(d, &self.filter)?))).collect();
-        if let Some(p) = self.report(plays) {
-            self.plays = p;
-        }
-        if let Some(f) = self.report(facets) {
-            self.facets = f;
-        }
-        self.refresh_picker();
-    }
-
-    fn refresh_picker(&mut self) {
-        let Some(db) = &self.db else { return };
-        let Some(team) = self.picker_team.clone() else {
-            self.positions.clear();
-            self.players.clear();
+        let mut f = PlayFilter::default();
+        f.values.insert(Dim::Game, game_id.to_string());
+        let plays = db.query_plays(&f);
+        let Some(plays) = self.report(plays) else { return };
+        let Some(first) = plays.first().map(|p| p.play_id) else {
+            self.error = Some("No dropback plays in this game".into());
             return;
         };
-        let pos = db.position_options(Some(&team), &self.filter);
-        let pl = db.player_options(Some(&team), self.picker_position.as_deref(), &self.filter);
-        if let Some(p) = self.report(pos) {
-            self.positions = p;
-        }
-        if let Some(p) = self.report(pl) {
-            self.players = p;
-        }
-    }
-
-    /// Shows the play list for one game (optionally one team's or player's plays).
-    pub fn show_game_plays(&mut self, game_id: i64, team: Option<&str>, nfl_id: Option<i64>) {
-        let mut f = PlayFilter::default();
-        if let Some(g) = self.games.get(&game_id) {
-            f.values.insert(Dim::Week, g.week.to_string());
-        }
-        f.values.insert(Dim::Game, game_id.to_string());
-        if let Some(t) = team {
-            f.values.insert(Dim::Team, t.to_string());
-            f.side = Side::Either;
-        }
-        if let Some(id) = nfl_id {
-            f.values.insert(Dim::Player, id.to_string());
-        }
-        self.filter = f;
-        self.refresh();
-        self.push(Screen::Filters);
+        self.plays = plays;
+        self.open_play(game_id, first);
     }
 
     // ---------- viewer ----------
@@ -308,8 +209,13 @@ impl AppState {
         if j < 0 || j as usize >= self.plays.len() {
             return;
         }
-        let p = &self.plays[j as usize];
-        let (g, pl) = (p.game_id, p.play_id);
+        let (g, pl) = (self.plays[j as usize].game_id, self.plays[j as usize].play_id);
+        self.jump_to_play(g, pl);
+    }
+
+    /// Switches the viewer to another play of the same game without adding
+    /// a history entry.
+    pub fn jump_to_play(&mut self, g: i64, pl: i64) {
         self.selected_play = Some((g, pl));
         if let Some(top) = self.stack.last_mut() {
             *top = Screen::Viewer { game_id: g, play_id: pl };
@@ -346,8 +252,21 @@ impl AppState {
     }
 
     pub fn tick(&mut self, dt: f32) {
+        let mut finished = false;
         if let Some(v) = &mut self.viewer {
+            let was = v.playback.playing;
             v.playback.tick(dt);
+            finished = was && !v.playback.playing;
+        }
+        // Auto-advance: roll straight into the next play and keep playing.
+        if finished && self.auto_advance && matches!(self.screen(), Screen::Viewer { .. }) {
+            let before = self.selected_play;
+            self.step_play(1);
+            if self.selected_play != before {
+                if let Some(v) = &mut self.viewer {
+                    v.playback.toggle();
+                }
+            }
         }
     }
 
@@ -419,7 +338,6 @@ impl AppState {
                 abbr: abbr.to_string(),
                 games: db.team_games(abbr)?,
                 roster: db.team_roster(abbr)?,
-                lineup: db.team_lineup(abbr)?,
                 tab: TeamTab::default(),
             })
         })();
@@ -441,7 +359,7 @@ mod tests {
     #[test]
     fn default_screen_and_back() {
         let mut s = state();
-        assert_eq!(s.screen(), &Screen::Filters);
+        assert_eq!(s.screen(), &Screen::Map);
         assert!(!s.can_go_back());
         s.open_play(1, 1);
         assert_eq!(s.screen(), &Screen::Viewer { game_id: 1, play_id: 1 });
@@ -451,7 +369,7 @@ mod tests {
         assert_eq!(s.screen(), &Screen::Viewer { game_id: 1, play_id: 1 });
         s.back();
         s.back();
-        assert_eq!(s.screen(), &Screen::Filters, "root stays");
+        assert_eq!(s.screen(), &Screen::Map, "map is the root and stays");
     }
 
     #[test]
@@ -459,22 +377,6 @@ mod tests {
         let s = AppState::new(Err("database not found".into()));
         assert_eq!(s.fatal.as_deref(), Some("database not found"));
         assert!(s.plays.is_empty());
-    }
-
-    #[test]
-    fn filter_updates_list_and_other_facets() {
-        let mut s = state();
-        assert_eq!(s.plays.len(), 4);
-        let sacks = |s: &AppState| s.facets[&Dim::PassResult].options.iter().find(|o| o.value == "S").unwrap().count;
-        assert_eq!(sacks(&s), 1);
-        s.set_filter(Dim::Team, Some("LV".into()));
-        assert_eq!(s.plays.len(), 3);
-        s.set_filter(Dim::Down, Some("3".into()));
-        assert_eq!(s.plays.len(), 1);
-        assert_eq!(sacks(&s), 0, "other facets follow the filter");
-        assert_eq!(s.facets[&Dim::Down].any, 3, "own facet ignores its own value");
-        s.clear_filters();
-        assert_eq!(s.plays.len(), 4);
     }
 
     #[test]
@@ -523,13 +425,12 @@ mod tests {
     #[test]
     fn team_screen_and_game_list() {
         let mut s = state();
-        s.set_root(Screen::Map);
         s.open_team("BAL");
         let t = s.team.as_ref().unwrap();
         assert_eq!(t.games.len(), 1);
         assert_eq!(t.record(), (0, 1, 0));
-        s.show_game_plays(1, Some("BAL"), None);
-        assert_eq!(s.screen(), &Screen::Filters);
+        s.show_game(1);
+        assert_eq!(s.screen(), &Screen::Viewer { game_id: 1, play_id: 1 });
         assert_eq!(s.plays.len(), 3);
         s.back();
         assert_eq!(s.screen(), &Screen::Team { abbr: "BAL".into() });
@@ -546,6 +447,6 @@ mod tests {
         s.step_play(-5);
         assert_eq!(s.screen(), &Screen::Viewer { game_id: 1, play_id: 2 }, "out of range is ignored");
         s.back();
-        assert_eq!(s.screen(), &Screen::Filters);
+        assert_eq!(s.screen(), &Screen::Map);
     }
 }
