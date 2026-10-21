@@ -64,6 +64,7 @@ function route() {
   if (stopMap) { stopMap(); stopMap = null; }
   showErr(null);
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  document.body.classList.remove('maproute');
   backBtn.style.display = parts.length ? 'flex' : 'none';
   window.scrollTo(0, 0);
   const done = p => p && p.catch && p.catch(e => { showErr(e); app.innerHTML = `<p class="muted">Something went wrong: ${esc(e.message)}</p>`; });
@@ -100,19 +101,19 @@ function spread(pts, minDist, iters) {
   return p;
 }
 function mapView() {
+  document.body.classList.add('maproute');
   setTitle('NFL Play Viewer');
   const hasTeam = {}; META.teams.forEach(t => (hasTeam[t.state] ||= []).push(t));
   app.innerHTML = `<div id="mapwrap"><svg id="msvg"><g id="mg">${USMAP.states.map(s => `<path class="st${hasTeam[s.code] ? ' has' : ''}" data-state="${s.code}" d="${s.d}"/>`).join('')}</g><g id="conn" stroke="rgba(255,255,255,.35)" stroke-width="1"></g></svg>
-    <div id="mlogos"></div><div id="hint">Tap a state to see its teams · pinch to zoom</div>
-    <div id="zoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" style="font-size:14px">⤢</button></div></div>
-    <h2>States with teams</h2><div id="schips" style="display:flex;flex-wrap:wrap;gap:8px">${Object.keys(hasTeam).sort((a, b) => META.states[a].localeCompare(META.states[b])).map(c => `<button class="schip" data-s="${c}">${hasTeam[c].map(t => logoHtml(t.a, 24)).join('')}<span>${esc(META.states[c])}</span></button>`).join('')}</div>`;
+    <div id="mlogos"></div><div id="hint">Tap a state for its teams · drag & pinch to move/zoom</div>
+    <div id="zoom"><button id="zin">+</button><button id="zout">−</button><button id="zfit" style="font-size:14px">⤢</button></div></div>`;
   const wrap = $('#mapwrap'), mg = $('#mg'), conn = $('#conn'), ml = $('#mlogos');
   let W = 0, H = 0, k = 1, tx = 0, ty = 0, k0 = 1, sel = null, cur = [];
   const LOGO = () => (W < 600 ? 34 : 52);
   ml.innerHTML = META.teams.map(t => `<div class="ml" data-t="${t.a}" data-state="${t.state}">${logoHtml(t.a, LOGO())}</div>`).join('');
   const els = [...ml.children];
   function size() {
-    W = wrap.clientWidth; H = W < 600 ? Math.max(300, W * .98) : Math.max(360, Math.min(window.innerHeight - 54 - 28, W * .64)); wrap.style.height = H + 'px';
+    W = wrap.clientWidth; H = Math.max(300, window.innerHeight - wrap.getBoundingClientRect().top); wrap.style.height = H + 'px';
     els.forEach(e => { const s = LOGO(); e.firstChild.style.width = e.firstChild.style.height = s + 'px'; });
   }
   const fitView = () => { k0 = k = Math.min(W / USMAP.w, H / USMAP.h) * (W < 600 ? 1.0 : .96); tx = (W - USMAP.w * k) / 2; ty = (H - USMAP.h * k) / 2; };
@@ -169,7 +170,6 @@ function mapView() {
     $('#mx').onclick = () => closeSheet();
     document.querySelectorAll('#mbox .row').forEach(r => r.onclick = () => { const a = r.dataset.t; closeSheet(true); go('team/' + a); });
   }
-  document.querySelectorAll('.schip').forEach(b => b.onclick = () => openState(b.dataset.s));
   const onResize = () => { size(); fitView(); draw(); };
   window.addEventListener('resize', onResize); stopMap = () => window.removeEventListener('resize', onResize);
 }
@@ -194,13 +194,14 @@ async function teamView(abbr, tab) {
     }).join('') + '</div>';
   } else {
     const r = d.roster.slice().sort((a, b) => a.order - b.order || b.snaps - a.snaps);
-    let group = '', open = false;
+    let group = '', open = false, gi = 0;
+    const cnt = {}; r.forEach(p => cnt[p.group] = (cnt[p.group] || 0) + 1);
     r.forEach(p => {
-      if (p.group !== group) { if (open) h += '</div>'; group = p.group; h += `<h2>${esc(group)}</h2><div class="list">`; open = true; }
+      if (p.group !== group) { if (open) h += '</div></details>'; group = p.group; h += `<details class="acc"${gi++ === 0 ? ' open' : ''}><summary>${esc(group)}<small>${cnt[group]}</small></summary><div class="list">`; open = true; }
       h += `<div class="row" data-p="${p.id}"><span class="jersey" style="background:${t.c};color:${onColor(t.c)}">${p.jersey != null ? p.jersey : '–'}</span><div class="grow"><div class="name">${esc(p.name)}</div>
         <div class="sub"><span class="dot" style="background:${p.roleCol}"></span> ${esc(p.posL)} · ${esc(p.roleL)}</div></div><div class="snaps">${thousands(p.snaps)}<small>snaps</small></div></div>`;
     });
-    if (open) h += '</div>';
+    if (open) h += '</div></details>';
   }
   app.innerHTML = h;
   app.querySelectorAll('.seg button').forEach(b => b.onclick = () => { history.replaceState(null, '', '#/team/' + abbr + '/' + b.dataset.tab); route(); });
@@ -219,9 +220,9 @@ async function playerView(id, abbr) {
   const bio = [p.height, p.weight ? p.weight + ' lb' : null, p.college, p.age != null ? 'age ' + p.age : null].filter(Boolean).join(' · ');
   let h = `<div class="hero" style="${heroStyle(t.c)}">${logoHtml(tm, 64)}<div style="min-width:0"><div class="t1">${esc(p.name)}</div><div class="t2">${esc(p.posL)} · ${esc(p.roleL)}</div><div class="t2 small" style="opacity:.75">${esc(bio)}</div></div>${ros.jersey != null ? `<div class="big">${ros.jersey}</div>` : ''}</div>
     <div class="tiles">${p.numbers.map(([l, v]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>`;
-  p.breakdowns.forEach(b => {
+  p.breakdowns.forEach((b, bi) => {
     const total = b.bars.reduce((s, x) => s + x[1], 0) || 1, max = Math.max(1, ...b.bars.map(x => x[1]));
-    h += `<div class="card"><b>${esc(b.t)}</b>` + b.bars.map(([l, v, c]) => `<div class="bar"><span class="l">${esc(l)}</span><span class="t"><i style="width:${(v / max * 100).toFixed(1)}%;background:${c}"></i></span><span class="v">${v % 1 ? v.toFixed(1) : v} · ${Math.round(v / total * 100)}%</span></div>`).join('') + '</div>';
+    h += `<details class="acc"${bi === 0 ? ' open' : ''}><summary>${esc(b.t)}</summary><div class="card" style="margin-top:0">` + b.bars.map(([l, v, c]) => `<div class="bar"><span class="l">${esc(l)}</span><span class="t"><i style="width:${(v / max * 100).toFixed(1)}%;background:${c}"></i></span><span class="v">${v % 1 ? v.toFixed(1) : v} · ${Math.round(v / total * 100)}%</span></div>`).join('') + '</div></details>';
   });
   if (p.trend.length) h += `<div class="card"><b>${esc(p.trendTitle)}</b><canvas id="trend" height="160"></canvas></div>`;
   h += '<h2>Game log</h2><div class="list">' + p.games.map(g => `<div class="row" data-g="${g.gid}">${logoHtml(g.opp, 40)}<div class="grow"><div class="name">Week ${g.week} · ${g.at} ${esc(g.opp)}</div><div class="sub">${esc(g.headline)}</div></div><div class="snaps">${g.snaps}<small>snaps</small></div></div>`).join('') + '</div>';

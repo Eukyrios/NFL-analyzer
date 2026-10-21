@@ -10,23 +10,21 @@ async function gameView(gid, playId) {
   app.innerHTML = '<p class="muted">Loading game…</p>';
   const gm = META_GAME[gid], G = await loadGame(gid);
   if (!G.plays.length) throw new Error('No dropback plays in this game');
-  const S = { pi: Math.max(0, G.plays.findIndex(p => p.id === playId)), f: 0, playing: false, speed: 1, trails: true, roles: false, auto: true, trk: null, hover: -1 };
+  const S = { pi: Math.max(0, G.plays.findIndex(p => p.id === playId)), f: 0, playing: false, speed: 1, trails: true, roles: false, auto: true, close: true, trk: null, hover: -1, cam: null };
   const first = gm.neutral ? gm.home : gm.away, second = gm.neutral ? gm.away : gm.home, sep = gm.neutral ? 'vs' : '@';
   const rolesLegend = Object.keys(ROLE_COL).map(k => `<span><span class="dot" style="background:${ROLE_COL[k]}"></span>${ROLE_NAME[k]}</span>`).join('');
   setTitle(first + ' ' + sep + ' ' + second);
   app.innerHTML = `
-    <div style="display:flex;align-items:center;gap:12px;margin:2px 2px 12px">${logoHtml(first, 44)}<div style="flex:1;min-width:0"><div style="font-size:21px;font-weight:700;line-height:1.15">${first} ${sep} ${second}</div>
-      <div class="muted small">Week ${gm.week} · ${esc(gm.when)} · ${G.plays.length} dropback plays${gm.neutral ? ' · Neutral · ' + esc(gm.stadium || '') : ''}</div></div>${logoHtml(second, 44)}</div>
-    <div style="display:flex;gap:8px;margin-bottom:12px"><div class="score" id="sc1"></div><div class="sit" id="sit"></div><div class="score" id="sc2"></div></div>
+    <div class="muted small" style="margin:0 2px 8px">Week ${gm.week} · ${esc(gm.when)} · ${G.plays.length} dropback plays${gm.neutral ? ' · Neutral · ' + esc(gm.stadium || '') : ''}</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px"><div class="score" id="sc1"></div><div class="sit" id="sit"></div><div class="score" id="sc2"></div></div>
     <canvas id="field" style="border-radius:16px"></canvas>
-    <div class="ctl"><button class="btn" id="prev">⏮</button><button class="btn play" id="pl">▶</button><button class="btn" id="next">⏭</button>
-      <select id="spd"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
-      <span id="tsnap" class="muted" style="font-variant-numeric:tabular-nums;margin-left:4px"></span></div>
-    <div class="ctl" style="margin-top:2px"><label><input type="checkbox" id="ck-trails" checked>Trails</label><label><input type="checkbox" id="ck-roles">Color by role</label><label><input type="checkbox" id="ck-auto" checked>Auto-advance</label></div>
-    <canvas id="scrub" height="52"></canvas>
-    <div id="chips" style="margin-top:6px"></div><div id="desc" class="muted"></div>
-    <div class="legend" id="legend" style="margin:10px 0"></div>
-    <div class="card"><div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:6px"><b style="margin:0">Game timeline · dropback plays</b><span class="legend">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]};width:8px;height:8px"></span> ${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></span></div><canvas id="tl" height="96"></canvas></div>`;
+    <div class="ctl2"><button class="btn" id="prev" aria-label="Previous play">⏮</button><button class="btn play" id="pl" aria-label="Play">▶</button><button class="btn" id="next" aria-label="Next play">⏭</button>
+      <div style="flex:1;min-width:0"><canvas id="scrub" height="50"></canvas></div><button class="btn" id="opt" aria-label="Options">⚙</button></div>
+    <div id="optpanel" class="card" style="display:none;margin-top:8px"><div class="ctl" style="margin:0 0 8px"><span class="muted small">Speed</span><select id="spd"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></div>
+      <div class="ctl" style="margin:0"><label><input type="checkbox" id="ck-close" checked>Close-up</label><label><input type="checkbox" id="ck-trails" checked>Trails</label><label><input type="checkbox" id="ck-roles">Color by role</label><label><input type="checkbox" id="ck-auto" checked>Auto-advance</label></div></div>
+    <div class="card" style="margin-top:10px"><div id="summary"></div>
+      <details id="det"><summary class="sx">Play details &amp; legend</summary><div id="chips" style="margin-top:8px"></div><div id="desc" class="muted small"></div><div class="legend" id="legend" style="margin-top:8px"></div></details></div>
+    <details class="card" id="tldet"><summary class="sx">Game timeline · all plays</summary><div class="legend" style="margin:8px 0">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]};width:8px;height:8px"></span> ${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></div><canvas id="tl" height="96"></canvas></details>`;
   const fieldCv = $('#field'), scrubCv = $('#scrub'), tlCv = $('#tl');
   const setup = (cv, h) => { const dpr = window.devicePixelRatio || 1, w = cv.clientWidth; cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px'; const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); return [c, w, h]; };
 
@@ -54,18 +52,31 @@ async function gameView(gid, playId) {
     S.pi = Math.max(0, Math.min(G.plays.length - 1, i));
     const p = G.plays[S.pi]; S.trk = decode(p); S.f = 0; S.playing = !!autoplay && !!S.trk && S.trk.n > 1;
     S.snap = S.trk ? Math.max(0, S.trk.snap - 1) : 0;
+    S.cam = S.trk ? camera(S.trk, p) : null; if (vp) sizeField();
     S.span = null;
     if (S.trk) { const e = S.trk.throw ?? S.trk.sack; if (e != null && e >= S.trk.snap) S.span = [Math.max(0, S.trk.snap - 1), Math.max(0, e - 1)]; }
     S.markers = S.trk ? S.trk.events.filter(e => EVENT[e[1]]).map(e => ({ f: Math.max(0, e[0] - 1), l: EVENT[e[1]] })).sort((a, b) => a.f - b.f) : [];
     updateText(); drawTimeline(); S.last = 0;
   }
   const home = gm.home;
+  // Close-up camera: box around every player across the whole play, with a minimum size.
+  function camera(t, p) {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (let f = 0; f < t.n; f++) for (let s = 0; s < t.ents.length; s++) { if (t.ents[s][0] == null) continue; const q = entAt(t, f, s); if (!q) continue; x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+    if (p.los != null) { x0 = Math.min(x0, p.los); x1 = Math.max(x1, p.los); }
+    if (x0 > x1) return null;
+    const fix = (a, b, min, max, m) => { a -= m; b += m; if (b - a < min) { const c = (a + b) / 2; a = c - min / 2; b = c + min / 2; } if (a < 0) { b -= a; a = 0; } if (b > max) { a -= b - max; b = max; } return [Math.max(0, a), Math.min(max, b)]; };
+    const [xa, xb] = fix(x0, x1, 40, LEN, 5), [ya, yb] = fix(y0, y1, 30, WID, 4);
+    return { xa, xb, ya, yb };
+  }
   function updateText() {
     const p = G.plays[S.pi], sc = t => t === gm.home ? p.hs : p.as;
     const card = (t, el) => { $(el).innerHTML = `${logoHtml(t, 32)}<div class="tn" style="min-width:0"><b style="font-size:15px">${t}</b>${p.off === t ? ' <span class="dot" style="background:#3B82F6;width:8px;height:8px"></span>' : ''}</div><b class="n">${sc(t)}</b>`; };
     card(first, '#sc1'); card(second, '#sc2');
     $('#sit').innerHTML = `<b>${p.qL} ${esc(p.clock)}</b><div class="muted small">${p.off} · ${esc(p.sit)}</div>`;
-    const chips = [`<span class="chip" style="background:${p.col};color:${isLight(p.col) ? '#111' : '#fff'};border-color:${p.col}">${esc(p.res)}${p.yds != null ? ' ' + (p.yds > 0 ? '+' : '') + p.yds : ''}</span>`];
+    $('#summary').innerHTML = `<div style="display:flex;gap:10px;align-items:center"><span class="chip" style="margin:0;background:${p.col};color:${isLight(p.col) ? '#111' : '#fff'};border-color:${p.col};font-weight:700">${esc(p.res)}${p.yds != null ? ' ' + (p.yds > 0 ? '+' : '') + p.yds : ''}</span><span class="muted small">Play ${S.pi + 1} of ${G.plays.length}</span></div>
+      <div style="margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.desc)}</div>`;
+    const chips = [];
     [p.form, p.pers, p.box != null ? p.box + ' in box' : null, p.cov ? p.cov + ' · ' + (p.covType || '') : null, p.drop, p.pa ? 'Play action' : null, p.ttt != null ? p.ttt.toFixed(1) + ' s to throw' : null].forEach(x => x && chips.push(`<span class="chip">${esc(x)}</span>`));
     $('#chips').innerHTML = chips.join(''); $('#desc').textContent = p.desc;
     legend();
@@ -79,14 +90,16 @@ async function gameView(gid, playId) {
 
   // ---- field drawing ----
   let vp = null;
-  function fit(W, H, portrait) {
-    const aspect = portrait ? WID / LEN : LEN / WID;
+  function fit(W, H, portrait, r) {
+    const ax = r.xb - r.xa, ay = r.yb - r.ya, aspect = portrait ? ay / ax : ax / ay;
     let w, h; if (W / H > aspect) { h = H; w = H * aspect; } else { w = W; h = W / aspect; }
-    return { L: (W - w) / 2, T: (H - h) / 2, w, h, portrait, sc: portrait ? w / WID : w / LEN };
+    return { L: (W - w) / 2, T: (H - h) / 2, w, h, portrait, r, sc: portrait ? w / ay : w / ax };
   }
-  const P = (x, y) => vp.portrait ? [vp.L + y / WID * vp.w, vp.T + (1 - x / LEN) * vp.h] : [vp.L + x / LEN * vp.w, vp.T + (1 - y / WID) * vp.h];
+  const P = (x, y) => { const r = vp.r, u = (x - r.xa) / (r.xb - r.xa), v = (y - r.ya) / (r.yb - r.ya); return vp.portrait ? [vp.L + v * vp.w, vp.T + (1 - u) * vp.h] : [vp.L + u * vp.w, vp.T + (1 - v) * vp.h]; };
+  const ENT_R = () => Math.max(1.1 * vp.sc, 7);
   function drawField(c, W, H) {
     c.fillStyle = '#1D5A28'; c.beginPath(); c.roundRect(0, 0, W, H, 16); c.fill();
+    c.beginPath(); c.rect(vp.L, vp.T, vp.w, vp.h); c.clip();
     const p = G.plays[S.pi], sc = vp.sc, rot = vp.portrait ? -Math.PI / 2 : 0;
     const rect = (x0, x1, y0, y1, col) => { const a = P(x0, y0), b = P(x1, y1); c.fillStyle = col; c.fillRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])); };
     const line = (a, b, col, w) => { const s1 = P(a[0], a[1]), s2 = P(b[0], b[1]); c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(s1[0], s1[1]); c.lineTo(s2[0], s2[1]); c.stroke(); };
@@ -122,7 +135,7 @@ async function gameView(gid, playId) {
   function drawEntities(c) {
     const t = S.trk;
     if (!t) { c.fillStyle = '#fff'; c.font = '15px system-ui'; c.textAlign = 'center'; c.fillText('No tracking for this play', fieldCv.clientWidth / 2, 80); return; }
-    const sc = vp.sc, r = Math.max(.95 * sc, 6), fr = frameAt(t, S.f);
+    const sc = vp.sc, r = ENT_R(), fr = frameAt(t, S.f);
     if (S.trails) {
       const last = Math.floor(S.f);
       t.ents.forEach((e, s) => {
@@ -138,9 +151,9 @@ async function gameView(gid, playId) {
       if (e[0] == null) { ball = [s, q]; return; }
       const [x, y] = P(q[0], q[1]), lk = look(e[2], e[3]);
       if (q[2] != null) { const a = q[2] * Math.PI / 180, dx = Math.sin(a), dy = Math.cos(a), d = vp.portrait ? [dy, -dx] : [dx, -dy]; c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x + d[0] * r * 1.7, y + d[1] * r * 1.7); c.stroke(); }
-      c.fillStyle = lk.fill; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.strokeStyle = lk.stroke; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = lk.fill; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.strokeStyle = lk.stroke; c.lineWidth = 2; c.stroke();
       if (S.hover === e[0]) { c.strokeStyle = '#D50A0A'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, r + 3, 0, 7); c.stroke(); }
-      if (e[1] != null && r >= 6) { c.fillStyle = lk.text; c.font = `${r * 1.05}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e[1], x, y + 1); }
+      if (e[1] != null && r >= 6) { c.fillStyle = lk.text; c.font = `700 ${r * 1.0}px system-ui`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(e[1], x, y + 1); }
     });
     if (ball) {
       const [s, q] = ball, prev = frameAt(t, Math.max(0, S.f - 1))[s], [x, y] = P(q[0], q[1]);
@@ -150,19 +163,19 @@ async function gameView(gid, playId) {
     }
   }
   function sizeField() {
-    const w = fieldCv.clientWidth, portrait = w < 700, h = portrait ? Math.min(w * 1.45, window.innerHeight * .72) : Math.min(w * WID / LEN + 20, window.innerHeight * .62);
-    const [c] = setup(fieldCv, h); vp = fit(w, h, portrait); return c;
+    const w = fieldCv.clientWidth, portrait = w < 700, r = (S.close && S.cam) ? S.cam : { xa: 0, xb: LEN, ya: 0, yb: WID };
+    const ax = r.xb - r.xa, ay = r.yb - r.ya, ideal = portrait ? w * ax / ay : w * ay / ax;
+    const h = Math.round(Math.min(ideal, window.innerHeight * (portrait ? .66 : .72)));
+    const [c] = setup(fieldCv, h); vp = fit(w, h, portrait, r); return c;
   }
   function render() {
     const c = fieldCv.getContext('2d'), W = fieldCv.clientWidth, H = parseFloat(fieldCv.style.height);
-    drawField(c, W, H); drawEntities(c); drawScrub(); updateClock();
-  }
-  function updateClock() {
-    const n = S.trk ? S.trk.n : 0; $('#tsnap').textContent = n ? ((S.f - S.snap) / FPS >= 0 ? '+' : '') + ((S.f - S.snap) / FPS).toFixed(1) + 's from snap' : '';
-    $('#pl').textContent = S.playing ? '⏸' : '▶';
+    c.save(); drawField(c, W, H); drawEntities(c); c.restore();
+    if (S.trk) { const t = (S.f - S.snap) / FPS, txt = (t >= 0 ? '+' : '') + t.toFixed(1) + 's', w = 54; c.fillStyle = 'rgba(6,11,22,.62)'; c.beginPath(); c.roundRect(10, 10, w, 24, 12); c.fill(); c.fillStyle = '#fff'; c.font = '600 13px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 10 + w / 2, 22.5); }
+    drawScrub(); $('#pl').textContent = S.playing ? '⏸' : '▶';
   }
   function drawScrub() {
-    const [c, W, H] = setup(scrubCv, 52); const t = S.trk, n = t ? Math.max(t.n - 1, 1) : 1, x0 = 12, x1 = W - 12, ty = 16;
+    const [c, W, H] = setup(scrubCv, 50); const t = S.trk, n = t ? Math.max(t.n - 1, 1) : 1, x0 = 12, x1 = W - 12, ty = 14;
     const fx = f => x0 + f / n * (x1 - x0);
     if (S.span) { c.fillStyle = '#013369'; c.fillRect(fx(S.span[0]), ty - 8, fx(S.span[1]) - fx(S.span[0]), 16); }
     c.fillStyle = '#2A3B5C'; c.fillRect(x0, ty - 3, x1 - x0, 6); c.fillStyle = '#D50A0A'; c.fillRect(x0, ty - 3, fx(S.f) - x0, 6);
@@ -172,6 +185,7 @@ async function gameView(gid, playId) {
     S.scrubGeom = { x0, x1, n };
   }
   function drawTimeline() {
+    if (!tlCv.clientWidth) return;
     const [c, W, H] = setup(tlCv, 96), plays = G.plays, left = 34, gap = 8, mid = 58, unit = (W - left - gap * 3) / plays.length;
     drawLogo(c, home, 14, mid - 22, 10); drawLogo(c, gm.away, 14, mid + 22, 10);
     c.strokeStyle = '#2A3B5C'; c.beginPath(); c.moveTo(left, mid); c.lineTo(W, mid); c.stroke();
@@ -191,7 +205,7 @@ async function gameView(gid, playId) {
 
   // ---- interaction ----
   const evt = (e, el) => { const r = el.getBoundingClientRect(); const t = e.touches ? e.touches[0] || e.changedTouches[0] : e; return [t.clientX - r.left, t.clientY - r.top]; };
-  const pickPlayer = ([x, y]) => { const r = Math.max(.95 * vp.sc, 6) + 14; let best = null, bd = 1e9; entityPoints().forEach(p => { const d = Math.hypot(p.xy[0] - x, p.xy[1] - y); if (d <= r && d < bd) { best = p; bd = d; } }); return best; };
+  const pickPlayer = ([x, y]) => { const r = ENT_R() + 12; let best = null, bd = 1e9; entityPoints().forEach(p => { const d = Math.hypot(p.xy[0] - x, p.xy[1] - y); if (d <= r && d < bd) { best = p; bd = d; } }); return best; };
   fieldCv.addEventListener('click', e => {
     const p = pickPlayer(evt(e, fieldCv)); if (!p) return;
     const ent = S.trk.ents[p.s]; const team = ent[2];
@@ -207,6 +221,9 @@ async function gameView(gid, playId) {
   $('#pl').onclick = () => { if (!S.trk) return; if (!S.playing && S.f >= S.trk.n - 1) S.f = 0; S.playing = !S.playing; };
   $('#prev').onclick = () => selectPlay(S.pi - 1, true); $('#next').onclick = () => selectPlay(S.pi + 1, true);
   $('#spd').onchange = e => S.speed = +e.target.value;
+  $('#opt').onclick = () => { const o = $('#optpanel'); o.style.display = o.style.display === 'none' ? 'block' : 'none'; };
+  $('#ck-close').onchange = e => { S.close = e.target.checked; sizeField(); };
+  $('#tldet').addEventListener('toggle', () => drawTimeline());
   $('#ck-trails').onchange = e => S.trails = e.target.checked; $('#ck-roles').onchange = e => { S.roles = e.target.checked; legend(); }; $('#ck-auto').onchange = e => S.auto = e.target.checked;
   let raf = 0, alive = true, lastT = 0;
   function loop(ts) {

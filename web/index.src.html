@@ -69,6 +69,22 @@ canvas{display:block;width:100%}
 #modal .grab{width:42px;height:4px;border-radius:4px;background:var(--border);margin:2px auto 12px}
 @media(min-width:700px){#modal{align-items:center}#modal .box{border-radius:22px;border-bottom:1px solid var(--border)}}
 /* game */
+
+body.maproute{overflow:hidden}
+body.maproute #app{padding:0;max-width:none}
+body.maproute #mapwrap{border-radius:0;border:0}
+details.acc{margin:10px 0}
+details.acc>summary,details.card>summary,.card details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;min-height:46px}
+details.acc[open]>summary{margin-bottom:8px}
+details>summary::-webkit-details-marker{display:none}
+details.acc>summary::after,details>summary.sx::after{content:'▾';color:var(--muted,#8FA0BA);margin-left:8px}
+details.acc[open]>summary::after{content:'▴'}
+details.acc>summary small{margin-left:auto;color:#8FA0BA;font-weight:500}
+.ctl2{display:flex;align-items:center;gap:8px;margin:10px 0}
+.ctl2 .btn{background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:46px;height:46px;font-size:17px;color:#fff;padding:0 12px}
+.ctl2 .btn.play{background:var(--red);border-color:var(--red);min-width:64px}
+.ctl2 label{display:flex;align-items:center;gap:6px;font-size:14px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:8px 13px}
+.ctl2 select{background:var(--surface);border:1px solid var(--border);color:#fff;border-radius:12px;height:44px;padding:0 10px}
 .ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 4px}
 .ctl .btn{background:var(--surface);border:1px solid var(--border);border-radius:12px;min-width:46px;height:44px;font-size:16px;padding:0 14px}
 .ctl .btn.play{background:var(--red);border-color:var(--red);min-width:64px}
