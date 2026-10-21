@@ -4,6 +4,11 @@ A local web app for exploring the [NFL Big Data Bowl 2023](https://www.kaggle.co
 data. Pick a game, and every dropback play appears on a clickable timeline. Select a play and
 an animated field shows all 22 players and the ball, frame by frame.
 
+![Demo: three plays from BAL @ LV, Week 1 2021](docs/demo.gif)
+
+*BAL @ LV, Week 1 2021: a 49-yard completion with trails on, a Maxx Crosby sack colored by PFF
+role with the hover tooltip, and the overtime touchdown. [Full-resolution MP4](docs/demo.mp4).*
+
 Each play shows:
 
 - **Field:** players with jersey numbers, which way each one is facing, the ball, the line of
