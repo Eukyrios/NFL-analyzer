@@ -22,9 +22,8 @@ async function gameView(gid, playId) {
       <div style="flex:1;min-width:0"><canvas id="scrub" height="50"></canvas></div><button class="btn" id="opt" aria-label="Options">⚙</button></div>
     <div id="optpanel" class="card" style="display:none;margin-top:8px"><div class="ctl" style="margin:0 0 8px"><span class="muted small">Speed</span><select id="spd"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></div>
       <div class="ctl" style="margin:0"><label><input type="checkbox" id="ck-close" checked>Close-up</label><label><input type="checkbox" id="ck-trails" checked>Trails</label><label><input type="checkbox" id="ck-roles">Color by role</label><label><input type="checkbox" id="ck-auto" checked>Auto-advance</label></div></div>
-    <div class="card" style="margin-top:10px"><div id="summary"></div>
-      <details id="det"><summary class="sx">Play details &amp; legend</summary><div id="chips" style="margin-top:8px"></div><div id="desc" class="muted small"></div><div class="legend" id="legend" style="margin-top:8px"></div></details></div>
-    <details class="card" id="tldet"><summary class="sx">Game timeline · all plays</summary><div class="legend" style="margin:8px 0">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]};width:8px;height:8px"></span> ${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></div><canvas id="tl" height="96"></canvas></details>`;
+    <div class="card" id="tlcard" style="margin-top:10px"><b style="font-size:15px">Game timeline</b><div class="legend" style="margin:8px 0">${RES_NAMES.map(r => `<span><span class="dot" style="background:${r[2]};width:8px;height:8px"></span> ${r[1]}</span>`).join('')}<span>· bar height = yards gained</span></div><canvas id="tl" height="96"></canvas></div>
+    <details class="acc" id="det"><summary id="sumhead"></summary><div class="card" style="margin-top:0"><div id="summary"></div><div id="chips" style="margin-top:8px"></div><div id="desc" class="muted small" style="margin-top:6px"></div><div class="legend" id="legend" style="margin-top:10px"></div></div></details>`;
   const fieldCv = $('#field'), scrubCv = $('#scrub'), tlCv = $('#tl');
   const setup = (cv, h) => { const dpr = window.devicePixelRatio || 1, w = cv.clientWidth; cv.width = w * dpr; cv.height = h * dpr; cv.style.height = h + 'px'; const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); return [c, w, h]; };
 
@@ -74,8 +73,7 @@ async function gameView(gid, playId) {
     const card = (t, el) => { $(el).innerHTML = `${logoHtml(t, 32)}<div class="tn" style="min-width:0"><b style="font-size:15px">${t}</b>${p.off === t ? ' <span class="dot" style="background:#3B82F6;width:8px;height:8px"></span>' : ''}</div><b class="n">${sc(t)}</b>`; };
     card(first, '#sc1'); card(second, '#sc2');
     $('#sit').innerHTML = `<b>${p.qL} ${esc(p.clock)}</b><div class="muted small">${p.off} · ${esc(p.sit)}</div>`;
-    $('#summary').innerHTML = `<div style="display:flex;gap:10px;align-items:center"><span class="chip" style="margin:0;background:${p.col};color:${isLight(p.col) ? '#111' : '#fff'};border-color:${p.col};font-weight:700">${esc(p.res)}${p.yds != null ? ' ' + (p.yds > 0 ? '+' : '') + p.yds : ''}</span><span class="muted small">Play ${S.pi + 1} of ${G.plays.length}</span></div>
-      <div style="margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(p.desc)}</div>`;
+    $('#sumhead').innerHTML = `<span style="display:flex;gap:10px;align-items:center"><span class="chip" style="margin:0;background:${p.col};color:${isLight(p.col) ? '#111' : '#fff'};border-color:${p.col};font-weight:700">${esc(p.res)}${p.yds != null ? ' ' + (p.yds > 0 ? '+' : '') + p.yds : ''}</span><span class="muted small" style="font-weight:500">Play ${S.pi + 1} of ${G.plays.length} · details</span></span>`;
     const chips = [];
     [p.form, p.pers, p.box != null ? p.box + ' in box' : null, p.cov ? p.cov + ' · ' + (p.covType || '') : null, p.drop, p.pa ? 'Play action' : null, p.ttt != null ? p.ttt.toFixed(1) + ' s to throw' : null].forEach(x => x && chips.push(`<span class="chip">${esc(x)}</span>`));
     $('#chips').innerHTML = chips.join(''); $('#desc').textContent = p.desc;
@@ -223,7 +221,6 @@ async function gameView(gid, playId) {
   $('#spd').onchange = e => S.speed = +e.target.value;
   $('#opt').onclick = () => { const o = $('#optpanel'); o.style.display = o.style.display === 'none' ? 'block' : 'none'; };
   $('#ck-close').onchange = e => { S.close = e.target.checked; sizeField(); };
-  $('#tldet').addEventListener('toggle', () => drawTimeline());
   $('#ck-trails').onchange = e => S.trails = e.target.checked; $('#ck-roles').onchange = e => { S.roles = e.target.checked; legend(); }; $('#ck-auto').onchange = e => S.auto = e.target.checked;
   let raf = 0, alive = true, lastT = 0;
   function loop(ts) {
