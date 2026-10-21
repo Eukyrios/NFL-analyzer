@@ -1,0 +1,22 @@
+name: iOS (unsigned IPA)
+on: {workflow_dispatch: {}}
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build web bundle (needs web/data from `cargo run -p webexport --release`; commit or generate it first)
+        run: |
+          python3 build_web.py
+          rm -rf ios/www && cp -R web/dist ios/www
+      - run: brew install xcodegen
+      - name: Generate project and build unsigned app
+        run: |
+          cd ios && xcodegen
+          xcodebuild -project NFLPlayViewer.xcodeproj -scheme NFLPlayViewer -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package IPA
+        run: |
+          cd ios && mkdir Payload && cp -R build/Build/Products/Release-iphoneos/NFLPlayViewer.app Payload/
+          zip -qr NFLPlayViewer-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: {name: NFLPlayViewer-unsigned-ipa, path: ios/NFLPlayViewer-unsigned.ipa}

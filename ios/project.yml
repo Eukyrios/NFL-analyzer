@@ -1,0 +1,24 @@
+name: NFLPlayViewer
+options: {bundleIdPrefix: com.nflanalizer, deploymentTarget: {iOS: "14.0"}}
+targets:
+  NFLPlayViewer:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - Assets.xcassets
+      - {path: www, type: folder, buildPhase: resources}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nflanalizer.app
+        PRODUCT_NAME: NFLPlayViewer
+        MARKETING_VERSION: "1.9"
+        CURRENT_PROJECT_VERSION: "10"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "NFL Play Viewer"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
