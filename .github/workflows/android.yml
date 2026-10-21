@@ -1,0 +1,30 @@
+# Builds the Android APK in CI. Run it from the Actions tab ("Run workflow");
+# the APK is attached to the run as the "nfl-play-viewer-apk" artifact.
+# Untested: written without access to the Android SDK, so expect to adjust it.
+name: Android APK
+on: workflow_dispatch
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+      - uses: android-actions/setup-android@v3
+      - name: Install NDK
+        run: |
+          sdkmanager "ndk;26.1.10909125" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+      - name: Build the game database (downloads logos and scores)
+        run: cargo run -p etl --release
+      - name: Build the APK
+        run: |
+          cargo install cargo-apk
+          cargo apk build --release -p app --lib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nfl-play-viewer-apk
+          path: target/release/apk/*.apk
