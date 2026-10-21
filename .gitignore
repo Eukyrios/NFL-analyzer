@@ -11,3 +11,4 @@ web/dist/
 apk/build/
 apk/*.apk
 apk/*.keystore
+ios/build/

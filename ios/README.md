@@ -14,3 +14,12 @@ python3 build_web.py && rm -rf ios/www && cp -R web/dist ios/www
 cd ios && brew install xcodegen && xcodegen && open NFLPlayViewer.xcodeproj
 ```
 Pick your team under Signing & Capabilities and press Run (or Product > Archive for TestFlight / App Store).
+
+## Option C – build the IPA on Linux (no Mac, no Xcode)
+`ios/build_ipa.sh` compiles `ios/native/main.m` with clang, links with lld (`ld64.lld`) against the
+iPhoneOS SDK from https://github.com/theos/sdks, bundles `web/dist` and zips `NFLPlayViewer-unsigned.ipa`.
+```
+git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks && (cd sdks && git sparse-checkout set iPhoneOS14.5.sdk)
+SDK=$PWD/sdks/iPhoneOS14.5.sdk ios/build_ipa.sh
+```
+The result is unsigned; AltStore / Sideloadly / SideStore sign it with your Apple ID when installing.
