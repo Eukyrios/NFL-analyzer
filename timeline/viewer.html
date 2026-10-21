@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --panel2:#1c222b; --line:#2b323c; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 16px; }
+  .muted { color: var(--muted); }
+
+  header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1 { margin: 0; font-size: 20px; font-weight: 650; display: flex; align-items: center; gap: 6px; }
+  h1 .logo { width: 30px; height: 30px; }
+  .logo { object-fit: contain; flex: none; }
+  .board { display: flex; gap: 8px; font-variant-numeric: tabular-nums; }
+  .team, .situation { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .team { display: flex; align-items: center; gap: 8px; }
+  .team .logo { width: 32px; height: 32px; }
+  .abbr { font-weight: 650; }
+  .score { font-size: 22px; font-weight: 700; min-width: 2ch; text-align: right; }
+  .poss { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); visibility: hidden; }
+  .team.has-ball .poss { visibility: visible; }
+  .situation { display: flex; flex-direction: column; justify-content: center; min-width: 160px; }
+
+  .field { position: relative; border-radius: 10px; overflow: hidden; background: #1d5a28; }
+  #field { display: block; width: 100%; }
+  .tooltip { position: absolute; pointer-events: none; display: none; z-index: 2; background: rgba(13,17,23,.95); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  button, select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  button:hover, select:hover { border-color: var(--accent); }
+  #play { min-width: 44px; }
+  .scrub { position: relative; flex: 1; min-width: 220px; padding-bottom: 30px; }
+  .scrub input { width: 100%; margin: 0; accent-color: var(--accent); }
+  .marks { position: absolute; left: 8px; right: 8px; bottom: 0; height: 28px; }
+  .mark { position: absolute; transform: translateX(-50%); font-size: 11px; color: var(--muted); white-space: nowrap; padding-top: 4px; }
+  .mark::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: 4px; background: var(--muted); }
+  .mark.row2 { top: 13px; }
+  .mark.row2::before { top: -13px; height: 17px; }
+  .clock { font-variant-numeric: tabular-nums; min-width: 150px; color: var(--muted); }
+  .clock b { color: var(--text); }
+  label.toggle { display: flex; align-items: center; gap: 4px; color: var(--muted); cursor: pointer; user-select: none; }
+
+  .info { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .desc { font-size: 15px; }
+  .chips, .info .legend { grid-column: 1 / -1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; font-size: 12px; }
+  .chip b { font-weight: 600; color: var(--muted); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .bar { display: inline-block; width: 14px; height: 3px; margin-right: 4px; vertical-align: 3px; }
+
+  .timeline { margin-top: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .tl-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tl { display: flex; gap: 6px; }
+  .tl-teams { display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; color: var(--muted); height: 64px; margin-top: 18px; }
+  .tl-teams span { display: flex; align-items: center; gap: 3px; }
+  .tl-teams .logo { width: 20px; height: 20px; }
+  .tooltip .logo { width: 16px; height: 16px; vertical-align: -3px; margin-right: 2px; }
+  .q { display: flex; flex-direction: column; min-width: 0; }
+  .q-label { font-size: 11px; color: var(--muted); margin-bottom: 2px; height: 16px; }
+  .ticks { display: flex; height: 64px; background: linear-gradient(var(--line), var(--line)) center / 100% 1px no-repeat; }
+  .tick { flex: 1 1 0; min-width: 0; position: relative; border: 0; padding: 0; background: none; border-radius: 2px; }
+  .tick:hover, .tick.cur { background: rgba(88,166,255,.16); }
+  .tick.cur { outline: 1px solid var(--accent); }
+  .tick i { position: absolute; left: 18%; right: 18%; border-radius: 1px; }
+  .tick i.up { bottom: 50%; }
+  .tick i.down { top: 50%; }
+  .keys { margin-top: 10px; font-size: 12px; color: var(--muted); }
+  kbd { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: 11px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1 id="title"></h1><div class="muted" id="subtitle"></div></div>
+    <div class="board">
+      <div class="team" id="t-away"><img class="logo" alt=""><span class="abbr"></span><span class="poss"></span><span class="score"></span></div>
+      <div class="situation"><b id="sit-clock"></b><span class="muted" id="sit-down"></span></div>
+      <div class="team" id="t-home"><img class="logo" alt=""><span class="abbr"></span><span class="poss"></span><span class="score"></span></div>
+    </div>
+  </header>
+
+  <div class="field"><canvas id="field"></canvas><div class="tooltip" id="tip"></div></div>
+
+  <div class="controls">
+    <button id="prev" title="Previous play (↑)">⏮</button>
+    <button id="play" title="Play / pause (Space)">▶</button>
+    <button id="next" title="Next play (↓)">⏭</button>
+    <div class="scrub"><input type="range" id="scrub" min="0" step="0.1" value="0"><div class="marks" id="marks"></div></div>
+    <span class="clock" id="clock"></span>
+    <select id="speed" title="Playback speed">
+      <option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="trails"> Trails</label>
+    <label class="toggle"><input type="checkbox" id="roles"> Color by role</label>
+    <label class="toggle"><input type="checkbox" id="auto" checked> Auto-advance</label>
+  </div>
+
+  <div class="info">
+    <div class="desc" id="desc"></div>
+    <div class="muted" id="playno"></div>
+    <div class="chips" id="chips"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="timeline">
+    <div class="tl-head"><b>Game timeline · dropback plays</b><div class="legend" id="tl-legend"></div></div>
+    <div class="tl" id="tl"></div>
+    <div class="keys"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> step frame · <kbd>↑</kbd><kbd>↓</kbd> previous/next play · hover a player for details</div>
+  </div>
+</div>
+
+<script>
+const GAME_ID = '__GAME_ID__';
+// Filled from /api/game; each play's tracking is fetched from /api/play when first shown.
+let G, plays, HOME, AWAY, SIDE_STYLE;
+const M = 2, LEN = 120, WID = 53.3, FPS = 10, STRIDE = 4;
+
+const TEAM_COLORS = {
+  ARI:'#97233F', ATL:'#A71930', BAL:'#241773', BUF:'#00338D', CAR:'#0085CA', CHI:'#0B162A', CIN:'#FB4F14', CLE:'#311D00',
+  DAL:'#003594', DEN:'#FB4F14', DET:'#0076B6', GB:'#203731', HOU:'#03202F', IND:'#002C5F', JAX:'#006778', KC:'#E31837',
+  LA:'#003594', LAC:'#0080C6', LV:'#000000', MIA:'#008E97', MIN:'#4F2683', NE:'#002244', NO:'#D3BC8D', NYG:'#0B2265',
+  NYJ:'#125740', PHI:'#004C54', PIT:'#FFB612', SEA:'#002244', SF:'#AA0000', TB:'#D50A0A', TEN:'#0C2340', WAS:'#5A1414',
+};
+const ROLES = {
+  'Pass': ['Passer', '#facc15'], 'Pass Block': ['Pass block', '#60a5fa'], 'Pass Route': ['Route', '#2dd4bf'],
+  'Pass Rush': ['Pass rush', '#f87171'], 'Coverage': ['Coverage', '#c084fc'],
+};
+const RESULTS = {
+  C: ['Complete', '#3fb950'], I: ['Incomplete', '#8b949e'], S: ['Sack', '#f85149'], IN: ['Interception', '#f0883e'], R: ['Scramble', '#58a6ff'],
+};
+const EVENTS = {
+  ball_snap: 'Snap', autoevent_ballsnap: 'Snap', pass_forward: 'Throw', autoevent_passforward: 'Throw', play_action: 'Play action',
+  qb_sack: 'Sack', qb_strip_sack: 'Strip sack', run: 'Scramble', man_in_motion: 'Motion', line_set: 'Line set', shift: 'Shift',
+  pass_tipped: 'Tipped', pass_arrived: 'Arrived', pass_outcome_caught: 'Caught', pass_outcome_incomplete: 'Incomplete',
+  autoevent_passinterrupted: 'Interrupted', fumble: 'Fumble', handoff: 'Handoff', qb_slide: 'Slide', out_of_bounds: 'Out of bounds',
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const titleCase = s => String(s).toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const qLabel = q => q <= 4 ? `Q${q}` : 'OT';
+const ord = d => ['', '1st', '2nd', '3rd', '4th'][d] || `${d}th`;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function luminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+  return .2126 * r + .7152 * g + .0722 * b;
+}
+const isLight = team => luminance(TEAM_COLORS[team] || '#6e7681') > .35;
+
+// Logos are saved next to the page by the builder; fall back to ESPN's CDN if missing.
+const ESPN = t => `https://a.espncdn.com/i/teamlogos/nfl/500/${({ LA: 'lar', WAS: 'wsh' })[t] || t.toLowerCase()}.png`;
+const LOGOS = {};
+function logoImage(team) {
+  if (!LOGOS[team]) {
+    const img = new Image();
+    img.onload = () => { state.dirty = true; };
+    img.onerror = () => { if (img.src !== ESPN(team)) img.src = ESPN(team); };
+    img.src = `/logos/${team}.png`;
+    LOGOS[team] = img;
+  }
+  const img = LOGOS[team];
+  return img.complete && img.naturalWidth > 0 ? img : null;
+}
+const logoTag = team => `<img class="logo" src="/logos/${team}.png" alt="${team}" onerror="this.onerror=null;this.src='${ESPN(team)}'">`;
+function setLogo(img, team) {
+  img.onerror = () => { img.onerror = null; img.src = ESPN(team); };
+  img.src = `/logos/${team}.png`;
+  img.alt = team;
+}
+
+// Home team in its color, away team in white with color trim.
+function teamStyle(team, home) {
+  const c = TEAM_COLORS[team] || '#6e7681', light = isLight(team);
+  return home
+    ? { fill: c, stroke: '#fff', text: light ? '#111' : '#fff', trail: c }
+    : { fill: '#fff', stroke: light ? '#333' : c, text: light ? '#111' : c, trail: light ? '#333' : c };
+}
+
+function entStyle(ent) {
+  if (!state.roles) return SIDE_STYLE[ent[1]];
+  const c = ROLES[ent[3]]?.[1] || '#9ca3af';
+  return { fill: c, stroke: '#0d1117', text: '#0d1117', trail: c };
+}
+
+const state = { pi: 0, f: 0, playing: false, speed: 1, trails: false, roles: false, auto: true, hover: -1, waitUntil: 0, dirty: true, mouse: null, loading: false };
+
+// ---------- canvas ----------
+const canvas = $('field'), ctx = canvas.getContext('2d'), tip = $('tip');
+let S = 10, dpr = 1, cw = 0, ch = 0;
+const X = x => (x + M) * S, Y = y => (WID + M - y) * S;
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  cw = canvas.parentElement.clientWidth;
+  S = cw / (LEN + 2 * M);
+  ch = S * (WID + 2 * M);
+  canvas.width = Math.round(cw * dpr);
+  canvas.height = Math.round(ch * dpr);
+  canvas.style.height = ch + 'px';
+  state.dirty = true;
+}
+new ResizeObserver(resize).observe(canvas.parentElement);
+
+// Position of entity e at fractional frame fi, interpolated between frames.
+function at(p, e, fi) {
+  const n = p.f.length - 1, i = clamp(Math.floor(fi), 0, n), j = Math.min(n, i + 1), t = clamp(fi - i, 0, 1), k = e * STRIDE;
+  const a = p.f[i], b = p.f[j][k] == null ? a : p.f[j];
+  if (a[k] == null) return null;
+  const near = t < .5 ? a : b;
+  return {
+    x: (a[k] + (b[k] - a[k]) * t) / 10,
+    y: (a[k + 1] + (b[k + 1] - a[k + 1]) * t) / 10,
+    o: near[k + 2],
+    s: near[k + 3] == null ? null : near[k + 3] / 10,
+  };
+}
+
+function yardLine(x, color, width) {
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(X(x), Y(0)); ctx.lineTo(X(x), Y(WID)); ctx.stroke();
+}
+
+function drawField(p) {
+  const c = ctx;
+  c.fillStyle = '#1d5a28'; c.fillRect(0, 0, cw, ch);
+  for (let x = 10; x < 110; x += 5) {
+    c.fillStyle = (x / 5) % 2 ? '#2b7a37' : '#2f843c';
+    c.fillRect(X(x), Y(WID), 5 * S, WID * S);
+  }
+
+  const mid = G.game.site ? null : logoImage(HOME);
+  if (mid) { const s = 11 * S; c.globalAlpha = .9; c.drawImage(mid, X(60) - s / 2, Y(WID / 2) - s / 2, s, s); c.globalAlpha = 1; }
+
+  // The defense guards the end zone the offense is driving toward.
+  const right = p.dir === 'R' ? p.def : p.pos, left = right === p.pos ? p.def : p.pos;
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (const [x0, team, rot] of [[0, left, -1], [110, right, 1]]) {
+    c.fillStyle = TEAM_COLORS[team] || '#444';
+    c.fillRect(X(x0), Y(WID), 10 * S, WID * S);
+    const img = logoImage(team), names = img ? [WID / 2 - 15, WID / 2 + 15] : [WID / 2];
+    if (img) {
+      // Light badge so logos in their own team color stay visible on the end zone.
+      const s = 7.5 * S, cx = X(x0 + 5), cy = Y(WID / 2);
+      c.fillStyle = 'rgba(255,255,255,.92)';
+      c.beginPath(); c.arc(cx, cy, s * .62, 0, Math.PI * 2); c.fill();
+      c.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+    }
+    c.fillStyle = isLight(team) ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.9)';
+    c.font = `800 ${(img ? 3 : 4.2) * S}px system-ui, sans-serif`;
+    for (const y of names) {
+      c.save(); c.translate(X(x0 + 5), Y(y)); c.rotate(rot * Math.PI / 2);
+      c.fillText(team, 0, 0); c.restore();
+    }
+  }
+
+  c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1; c.beginPath();
+  for (let x = 15; x < 110; x += 5) { c.moveTo(X(x), Y(0)); c.lineTo(X(x), Y(WID)); }
+  for (let x = 11; x < 110; x++) {
+    if (x % 5 === 0) continue;
+    for (const y of [0.3, 23.25, WID - 23.92, WID - 0.97]) { c.moveTo(X(x), Y(y)); c.lineTo(X(x), Y(y + 0.67)); }
+  }
+  c.stroke();
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(X(10), Y(0)); c.lineTo(X(10), Y(WID)); c.moveTo(X(110), Y(0)); c.lineTo(X(110), Y(WID)); c.stroke();
+  c.strokeRect(X(0), Y(WID), LEN * S, WID * S);
+
+  c.fillStyle = 'rgba(255,255,255,.75)'; c.font = `700 ${2.2 * S}px system-ui, sans-serif`;
+  for (let k = 1; k <= 9; k++) {
+    const x = 10 + 10 * k, n = String(k <= 5 ? 10 * k : 100 - 10 * k);
+    c.fillText(n, X(x), Y(12));
+    c.save(); c.translate(X(x), Y(WID - 12)); c.rotate(Math.PI); c.fillText(n, 0, 0); c.restore();
+  }
+
+  if (p.los != null) {
+    const w = Math.max(2, .3 * S);
+    yardLine(p.los, '#3b82f6', w);
+    if (p.down && p.ytg) yardLine(clamp(p.los + (p.dir === 'R' ? 1 : -1) * p.ytg, 10, 110), '#facc15', w);
+  }
+}
+
+function drawTrails(p) {
+  const last = Math.floor(state.f);
+  if (last < 1 && state.f === 0) return;
+  ctx.lineWidth = 1.5; ctx.globalAlpha = .6;
+  p.ents.forEach((ent, e) => {
+    const k = e * STRIDE;
+    ctx.strokeStyle = ent[1] === 2 ? '#f5deb3' : entStyle(ent).trail;
+    ctx.beginPath();
+    let open = false;
+    for (let i = 0; i <= last; i++) {
+      const fr = p.f[i];
+      if (fr[k] == null) { open = false; continue; }
+      const x = X(fr[k] / 10), y = Y(fr[k + 1] / 10);
+      open ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      open = true;
+    }
+    const cur = at(p, e, state.f);
+    if (cur && open) ctx.lineTo(X(cur.x), Y(cur.y));
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+const radius = () => Math.max(5, .95 * S);
+
+function drawEntities(p) {
+  const r = radius();
+  let ball = -1;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.max(7, r * 1.05)}px system-ui, sans-serif`;
+  p.ents.forEach((ent, e) => {
+    if (ent[1] === 2) { ball = e; return; }
+    const q = at(p, e, state.f);
+    if (!q) return;
+    const st = entStyle(ent), x = X(q.x), y = Y(q.y);
+    if (q.o != null) {
+      // Orientation: 0° points toward +y (top of screen), clockwise.
+      const a = q.o * Math.PI / 180;
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.sin(a) * r * 1.7, y - Math.cos(a) * r * 1.7); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = st.fill; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = st.stroke; ctx.stroke();
+    if (e === state.hover) {
+      ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (ent[2] != null && r >= 6) { ctx.fillStyle = st.text; ctx.fillText(ent[2], x, y + .5); }
+  });
+
+  if (ball < 0) return;
+  const q = at(p, ball, state.f);
+  if (!q) return;
+  const prev = at(p, ball, Math.max(0, state.f - 1));
+  let ang = 0;
+  if (prev) { const dx = q.x - prev.x, dy = q.y - prev.y; if (dx * dx + dy * dy > 1e-4) ang = Math.atan2(-dy, dx); }
+  ctx.save(); ctx.translate(X(q.x), Y(q.y)); ctx.rotate(ang);
+  ctx.beginPath(); ctx.ellipse(0, 0, Math.max(4, .6 * S), Math.max(2.5, .36 * S), 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#8b4a1c'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+}
+
+function render() {
+  const p = plays?.[state.pi];
+  if (!p?.f) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawField(p);
+  if (state.trails) drawTrails(p);
+  drawEntities(p);
+  updateFrameUI(p);
+  if (state.hover >= 0) showTip(p);
+}
+
+// ---------- hover ----------
+function showTip(p) {
+  const ent = p.ents[state.hover], q = at(p, state.hover, state.f), m = state.mouse;
+  if (!ent || !q || !m) { tip.style.display = 'none'; return; }
+  const [name, pos] = G.players[ent[0]] || ['Unknown', ''];
+  const extra = [ent[3] && (ROLES[ent[3]]?.[0] || ent[3]), ent[4] && `lined up ${ent[4]}`, q.s != null && `${q.s.toFixed(1)} yd/s`].filter(Boolean);
+  const team = ent[1] === 0 ? HOME : AWAY;
+  tip.innerHTML = `${logoTag(team)}<b>${esc(name)}</b> #${esc(ent[2])} · ${esc(pos)} · ${team}<br><span class="muted">${esc(extra.join(' · '))}</span>`;
+  tip.style.display = 'block';
+  const left = Math.min(m.x + 14, cw - tip.offsetWidth - 4), top = m.y + 14 + tip.offsetHeight > ch ? m.y - tip.offsetHeight - 10 : m.y + 14;
+  tip.style.left = Math.max(4, left) + 'px'; tip.style.top = top + 'px';
+}
+
+canvas.addEventListener('mousemove', ev => {
+  const rect = canvas.getBoundingClientRect(), mx = ev.clientX - rect.left, my = ev.clientY - rect.top, p = plays?.[state.pi];
+  if (!p?.f) return;
+  let best = -1, bestD = (radius() + 4) ** 2;
+  p.ents.forEach((ent, e) => {
+    if (ent[1] === 2) return;
+    const q = at(p, e, state.f);
+    if (!q) return;
+    const d = (X(q.x) - mx) ** 2 + (Y(q.y) - my) ** 2;
+    if (d < bestD) { bestD = d; best = e; }
+  });
+  state.mouse = { x: mx, y: my };
+  if (best !== state.hover || best >= 0) { state.hover = best; state.dirty = true; }
+  if (best < 0) tip.style.display = 'none';
+});
+canvas.addEventListener('mouseleave', () => { state.hover = -1; state.mouse = null; tip.style.display = 'none'; state.dirty = true; });
+
+// ---------- UI ----------
+function eventsOf(p) {
+  // One marker per label; prefer the manually tagged event over the auto-detected one.
+  const seen = new Map();
+  for (const [i, name] of p.ev) {
+    const label = EVENTS[name] || titleCase(name), auto = name.startsWith('autoevent'), prev = seen.get(label);
+    if (!prev || (prev.auto && !auto)) seen.set(label, { i, label, auto });
+  }
+  return [...seen.values()].sort((a, b) => a.i - b.i);
+}
+
+function setTeam(el, team, score, hasBall) {
+  el.querySelector('.abbr').textContent = team;
+  el.querySelector('.score').textContent = score;
+  el.classList.toggle('has-ball', hasBall);
+}
+
+function updatePlayUI(p) {
+  setTeam($('t-away'), AWAY, p.vs, p.pos === AWAY);
+  setTeam($('t-home'), HOME, p.hs, p.pos === HOME);
+  $('sit-clock').textContent = `${qLabel(p.q)} · ${p.clock}`;
+  const goal = p.los != null && p.ytg && (p.dir === 'R' ? p.los + p.ytg >= 110 : p.los - p.ytg <= 10);
+  $('sit-down').textContent = p.down ? `${p.pos} · ${ord(p.down)} & ${goal ? 'Goal' : p.ytg} · ${p.yl}` : `${p.pos} · ${p.yl}`;
+
+  $('desc').textContent = p.desc;
+  $('playno').textContent = `Play ${state.pi + 1} of ${plays.length} · id ${p.id}`;
+
+  const res = RESULTS[p.res], chips = [];
+  if (res) chips.push(`<span class="chip" style="border-color:${res[1]}"><span class="dot" style="background:${res[1]}"></span>${res[0]}</span>`);
+  if (p.yds != null) chips.push(`<span class="chip">${p.yds > 0 ? '+' : ''}${p.yds} yds</span>`);
+  if (p.fouls.length) chips.push(`<span class="chip"><b>Penalty</b> ${esc(p.fouls.join(', '))}</span>`);
+  if (p.form) chips.push(`<span class="chip"><b>Formation</b> ${esc(titleCase(p.form))}</span>`);
+  if (p.persO) chips.push(`<span class="chip"><b>Off</b> ${esc(p.persO)}</span>`);
+  if (p.persD) chips.push(`<span class="chip"><b>Def</b> ${esc(p.persD)}</span>`);
+  if (p.box != null) chips.push(`<span class="chip"><b>Box</b> ${p.box}</span>`);
+  if (p.cov) chips.push(`<span class="chip"><b>Coverage</b> ${esc(p.cov)}${p.covType ? ` (${esc(p.covType)})` : ''}</span>`);
+  if (p.drop) chips.push(`<span class="chip"><b>Dropback</b> ${esc(titleCase(p.drop))}</span>`);
+  if (p.pa) chips.push(`<span class="chip">Play action</span>`);
+  $('chips').innerHTML = chips.join('');
+
+  p.events ||= eventsOf(p);
+  const n = Math.max(1, p.f.length - 1);
+  let lastPct = -100, row2 = false;
+  $('marks').innerHTML = p.events.map(ev => {
+    const pct = ev.i / n * 100;
+    row2 = pct - lastPct < 9 ? !row2 : false;
+    lastPct = pct;
+    return `<span class="mark${row2 ? ' row2' : ''}" style="left:${pct}%">${esc(ev.label)}</span>`;
+  }).join('');
+  $('scrub').max = p.f.length - 1;
+
+  document.querySelectorAll('.tick.cur').forEach(t => t.classList.remove('cur'));
+  document.querySelector(`.tick[data-i="${state.pi}"]`)?.classList.add('cur');
+}
+
+function updateFrameUI(p) {
+  $('scrub').value = state.f;
+  const secs = (state.f - p.snap) / FPS;
+  const last = p.events.filter(ev => ev.i <= state.f + 1e-6).pop();
+  $('clock').innerHTML = `<b>${secs < 0 ? '−' : '+'}${Math.abs(secs).toFixed(1)}s</b> from snap${last ? ` · ${esc(last.label)}` : ''}`;
+}
+
+function updateLegend() {
+  const lines = `<span><span class="bar" style="background:#3b82f6"></span>Line of scrimmage</span><span><span class="bar" style="background:#facc15"></span>Line to gain</span>`;
+  const items = state.roles
+    ? Object.values(ROLES).map(([label, c]) => `<span><span class="dot" style="background:${c}"></span>${label}</span>`)
+    : [[HOME, 0, 'home'], [AWAY, 1, 'away']].map(([t, s, w]) => `<span><span class="dot" style="background:${SIDE_STYLE[s].fill};border:2px solid ${SIDE_STYLE[s].stroke}"></span>${t}${G.game.site ? '' : ` (${w})`}</span>`);
+  $('legend').innerHTML = items.join('') + `<span><span class="dot" style="background:#8b4a1c"></span>Ball</span>` + lines;
+  $('tl-legend').innerHTML = Object.values(RESULTS).map(([label, c]) => `<span><span class="dot" style="background:${c}"></span>${label}</span>`).join('') + '<span>· bar height = yards gained</span>';
+}
+
+function buildTimeline() {
+  const byQ = new Map();
+  plays.forEach((p, i) => { if (!byQ.has(p.q)) byQ.set(p.q, []); byQ.get(p.q).push(i); });
+  let html = `<div class="tl-teams"><span>${logoTag(HOME)}▲</span><span>${logoTag(AWAY)}▼</span></div>`;
+  for (const [q, idx] of byQ) {
+    html += `<div class="q" style="flex:${idx.length} 1 0"><div class="q-label">${qLabel(q)}</div><div class="ticks">`;
+    html += idx.map(i => {
+      const p = plays[i], res = RESULTS[p.res], col = res ? res[1] : '#6e7681', h = Math.min(30, 3 + Math.abs(p.yds || 0));
+      const title = `${qLabel(p.q)} ${p.clock} · ${p.pos} · ${res ? res[0] : '—'}${p.yds != null ? ` ${p.yds > 0 ? '+' : ''}${p.yds} yds` : ''}\n${p.desc}`;
+      return `<button class="tick" data-i="${i}" title="${esc(title)}"><i class="${p.pos === HOME ? 'up' : 'down'}" style="height:${h}px;background:${col}"></i></button>`;
+    }).join('');
+    html += '</div></div>';
+  }
+  $('tl').innerHTML = html;
+  $('tl').addEventListener('click', ev => { const b = ev.target.closest('.tick'); if (b) loadPlay(+b.dataset.i, true); });
+}
+
+// ---------- playback ----------
+async function getJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+// Fetches a play's tracking once and merges it into the play summary.
+function ensurePlay(i) {
+  const p = plays[i];
+  if (p.f) return Promise.resolve(p);
+  p.request ||= getJSON(`/api/play/${GAME_ID}/${p.id}`)
+    .then(d => { Object.assign(G.players, d.players); delete d.players; Object.assign(p, d); p.events = eventsOf(p); return p; })
+    .catch(e => { p.request = null; throw e; });
+  return p.request;
+}
+
+let loadToken = 0;
+async function loadPlay(i, autoplay) {
+  i = clamp(i, 0, plays.length - 1);
+  const token = ++loadToken;
+  state.loading = true;
+  try {
+    await ensurePlay(i);
+  } catch (e) {
+    if (token === loadToken) {
+      state.loading = false; state.playing = false; syncPlayBtn();
+      $('desc').textContent = `Couldn't load play: ${e.message}`;
+    }
+    return;
+  }
+  if (token !== loadToken) return;  // a newer selection superseded this one
+  state.loading = false;
+  if (i + 1 < plays.length) ensurePlay(i + 1).catch(() => {});  // prefetch for auto-advance
+
+  state.pi = i;
+  state.f = 0; state.waitUntil = 0; state.hover = -1;
+  tip.style.display = 'none';
+  if (autoplay !== undefined) state.playing = autoplay;
+  updatePlayUI(plays[state.pi]);
+  syncPlayBtn();
+  state.dirty = true;
+}
+
+function syncPlayBtn() { $('play').textContent = state.playing ? '⏸' : '▶'; }
+
+function togglePlay() {
+  const p = plays[state.pi];
+  if (!state.playing && state.f >= p.f.length - 1) state.f = 0;
+  state.playing = !state.playing; state.waitUntil = 0;
+  syncPlayBtn(); state.dirty = true;
+}
+
+function step(d) {
+  state.playing = false; syncPlayBtn();
+  state.f = clamp(Math.round(state.f) + d, 0, plays[state.pi].f.length - 1);
+  state.dirty = true;
+}
+
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(.1, (now - lastT) / 1000), p = plays[state.pi], end = p.f.length - 1;
+  lastT = now;
+  if (state.playing && !state.loading) {
+    if (state.f < end) { state.f = Math.min(end, state.f + dt * FPS * state.speed); state.dirty = true; }
+    else if (state.auto && state.pi < plays.length - 1) {
+      if (!state.waitUntil) state.waitUntil = now + 1200;
+      else if (now >= state.waitUntil) loadPlay(state.pi + 1);
+    } else { state.playing = false; syncPlayBtn(); }
+  }
+  if (state.dirty) { state.dirty = false; render(); }
+  requestAnimationFrame(frame);
+}
+
+$('play').addEventListener('click', togglePlay);
+$('prev').addEventListener('click', () => loadPlay(state.pi - 1));
+$('next').addEventListener('click', () => loadPlay(state.pi + 1));
+$('scrub').addEventListener('input', e => { state.f = +e.target.value; state.playing = false; syncPlayBtn(); state.dirty = true; });
+$('speed').addEventListener('change', e => { state.speed = +e.target.value; });
+$('trails').addEventListener('change', e => { state.trails = e.target.checked; state.dirty = true; });
+$('roles').addEventListener('change', e => { state.roles = e.target.checked; updateLegend(); state.dirty = true; });
+$('auto').addEventListener('change', e => { state.auto = e.target.checked; });
+// Drop focus after mouse use so Space/arrows always drive playback.
+document.querySelectorAll('button, select, input').forEach(el => el.addEventListener('change', () => el.blur()));
+document.addEventListener('click', e => { if (e.target.closest('button')) e.target.closest('button').blur(); });
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  const keys = { ' ': togglePlay, ArrowRight: () => step(1), ArrowLeft: () => step(-1), ArrowDown: () => loadPlay(state.pi + 1), ArrowUp: () => loadPlay(state.pi - 1) };
+  if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
+});
+
+(async () => {
+  $('desc').textContent = 'Loading…';
+  try {
+    G = await getJSON(`/api/game/${GAME_ID}`);
+  } catch (e) {
+    $('desc').textContent = `Couldn't load game: ${e.message}`;
+    return;
+  }
+  G.players = {};
+  plays = G.plays; HOME = G.game.home; AWAY = G.game.away;
+  SIDE_STYLE = [teamStyle(HOME, true), teamStyle(AWAY, false)];
+
+  const g = G.game;
+  $('title').innerHTML = `${logoTag(AWAY)}${AWAY} ${g.site ? 'vs' : '@'} ${logoTag(HOME)}${HOME}`;
+  setLogo(document.querySelector('#t-away .logo'), AWAY);
+  setLogo(document.querySelector('#t-home .logo'), HOME);
+  const site = g.site ? ` · ${esc(g.site)} (neutral site)` : '';
+  $('subtitle').innerHTML = `<a href="/" style="color:inherit">All games</a>${site} · Week ${g.week} · ${esc(g.date)} · ${esc(g.time.slice(0, 5))} ET · ${plays.length} dropback plays`;
+  buildTimeline();
+  updateLegend();
+  resize();
+  await loadPlay(0, false);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
