@@ -1,11 +1,9 @@
-//! Shared widgets: faceted dropdowns, chips, cards.
+//! Shared widgets: chips, cards, rows.
 
 use egui::{Color32, CornerRadius, RichText, Sense, Stroke, StrokeKind, Ui};
 use nfl_core::style::{self as s, Rgb};
 
 use crate::theme::{self, c};
-
-}
 
 /// Fully rounded chip; `fill` None = surface with border.
 pub fn chip(ui: &mut Ui, text: &str, fill: Option<Rgb>) {
