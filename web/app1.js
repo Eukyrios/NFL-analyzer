@@ -230,7 +230,7 @@ async function playerView(id, abbr) {
     h += `<details class="acc"${bi === 0 ? ' open' : ''}><summary>${esc(b.t)}</summary><div class="card" style="margin-top:0">` + b.bars.map(([l, v, c]) => `<div class="bar"><span class="l">${esc(l)}</span><span class="t"><i style="width:${(v / max * 100).toFixed(1)}%;background:${c}"></i></span><span class="v">${v % 1 ? v.toFixed(1) : v} · ${Math.round(v / total * 100)}%</span></div>`).join('') + '</div></details>';
   });
   if (p.trend.length) h += `<div class="card"><b>${esc(p.trendTitle)}</b><canvas id="trend" height="160"></canvas></div>`;
-  h += '<h2>Game log</h2><div class="list">' + p.games.map(g => `<div class="row" data-g="${g.gid}">${logoHtml(g.opp, 40)}<div class="grow"><div class="name">Week ${g.week} · ${g.at} ${esc(g.opp)}</div><div class="sub">${esc(g.headline)}</div></div><div class="snaps">${g.snaps}<small>snaps</small></div></div>`).join('') + '</div>';
+  h += '<h2>Game log</h2><div class="list">' + p.games.map(g => `<div class="row" data-g="${g.gid}">${logoHtml(g.opp, 40)}<div class="grow"><div class="name">Week ${g.week} · vs ${esc(g.opp)}</div><div class="sub">${esc(g.headline)}</div></div><div class="snaps">${g.snaps}<small>snaps</small></div></div>`).join('') + '</div>';
   app.innerHTML = h;
   app.querySelectorAll('[data-g]').forEach(r => r.onclick = () => go('game/' + r.dataset.g));
   const cv = $('#trend');
