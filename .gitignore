@@ -12,3 +12,4 @@ apk/build/
 apk/*.apk
 apk/*.keystore
 ios/build/
+apk/*.idsig
