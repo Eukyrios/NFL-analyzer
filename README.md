@@ -21,7 +21,23 @@ Each play shows:
 - **Options:** movement trails, coloring by PFF role (passer, pass block, route, pass rush,
   coverage), and auto-advance to play through the whole game.
 
-## Getting started
+## Quick start: the mobile app (Android APK, web, iOS)
+
+Needs `cargo`, `python3`, `java` (`sudo apt install default-jdk`) and `npm`.
+
+```sh
+git clone https://github.com/Eukyrios/NFL-analyzer.git && cd NFL-analyzer
+make apk VERSION_CODE=1 VERSION_NAME=1.0   # builds the database, the web data, then apk/nfl-play-viewer.apk
+adb install -r apk/nfl-play-viewer.apk     # or copy the file to the phone and tap it
+```
+
+`make web` builds just the web app (`web/dist/index.html`, opens straight from disk in a browser).
+The first run imports the dataset and downloads the schedule/logos, so it takes a few minutes; later
+builds reuse `data/nfl.sqlite` and `web/data/`. `apk/build.sh` installs apktool by itself the first time.
+Bump `VERSION_CODE` on every release. Keep `apk/nfl.keystore` (it is git-ignored): updates only install
+over an existing app if they are signed with the same key. Player photos need internet; all else is offline.
+
+## Getting started (desktop and web server)
 
 Requirements: Rust (`cargo`), and internet access the first time (for logos and the schedule).
 The competition data is included in the repo under `data/` (about 1 GB), so there's nothing

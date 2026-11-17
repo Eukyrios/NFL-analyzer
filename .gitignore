@@ -14,3 +14,5 @@ apk/*.keystore
 ios/build/
 apk/*.idsig
 apk/*.idsig
+apk/tools/
+apk/*.idsig

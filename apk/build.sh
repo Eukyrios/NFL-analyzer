@@ -4,7 +4,17 @@
 # @postar/apktool-node (npm i @postar/apktool-node). Usage: apk/build.sh <version_code> <version_name>
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; root="$here/.."
-LIB="${APKTOOL_LIB:-$HOME/apkwork/tools/node_modules/@postar/apktool-node/lib}"
+# Find (or install) apktool + apksigner: $APKTOOL_LIB, then ./apk/tools, then ~/node_modules; else npm-install into apk/tools.
+LIB="${APKTOOL_LIB:-}"
+for c in "$here/tools/node_modules/@postar/apktool-node/lib" "$HOME/node_modules/@postar/apktool-node/lib"; do
+  [ -n "$LIB" ] && [ -f "$LIB/apktool.jar" ] && break; LIB="$c"
+done
+if [ ! -f "$LIB/apktool.jar" ]; then
+  echo "Installing apktool into apk/tools (one time)..."
+  npm install --prefix "$here/tools" @postar/apktool-node >/dev/null
+  LIB="$here/tools/node_modules/@postar/apktool-node/lib"
+fi
+command -v java >/dev/null || { echo "Java is missing: sudo apt install default-jdk"; exit 1; }
 KS="${KEYSTORE:-$here/nfl.keystore}"
 work="$here/build"; rm -rf "$work"; mkdir -p "$work"
 python3 "$root/build_web.py"
