@@ -124,6 +124,8 @@ pub struct Play {
     pub coverage: Option<String>,
     pub coverage_type: Option<String>,
     pub time_to_throw: Option<f32>,
+    /// Penalty names (`foulName1..3`), in order.
+    pub fouls: Vec<String>,
 }
 
 impl Play {
@@ -155,7 +157,7 @@ pub const PLAY_COLUMNS: &str = "p.gameId, p.playId, p.playDescription, p.quarter
     p.possessionTeam, p.defensiveTeam, p.yardlineSide, p.yardlineNumber, p.gameClock, p.preSnapHomeScore, \
     p.preSnapVisitorScore, p.passResult, p.playResult, p.absoluteYardlineNumber, p.offenseFormation, \
     p.personnelO, p.personnelD, p.defendersInBox, p.dropBackType, p.pff_playAction, p.pff_passCoverage, \
-    p.pff_passCoverageType, s.time_to_throw";
+    p.pff_passCoverageType, s.time_to_throw, p.foulName1, p.foulName2, p.foulName3";
 
 pub fn play_from_row(r: &Row) -> rusqlite::Result<Play> {
     Ok(Play {
@@ -184,6 +186,7 @@ pub fn play_from_row(r: &Row) -> rusqlite::Result<Play> {
         coverage: r.get(22)?,
         coverage_type: r.get(23)?,
         time_to_throw: r.get::<_, Option<f64>>(24)?.map(|v| v as f32),
+        fouls: (25..28).filter_map(|i| r.get::<_, Option<String>>(i).transpose()).collect::<rusqlite::Result<_>>()?,
     })
 }
 
@@ -196,6 +199,8 @@ pub struct PlayEntity {
     pub team: String,
     /// The player's PFF role on this play, when scouted.
     pub role: Option<String>,
+    /// Where PFF had them lined up (`pff_positionLinedUp`), when scouted.
+    pub lined_up: Option<String>,
 }
 
 impl PlayEntity {
@@ -341,7 +346,7 @@ impl Db {
 
     pub fn tracking(&self, game_id: i64, play_id: i64) -> Result<Option<PlayTracking>> {
         let mut s = self.conn.prepare(
-            "SELECT e.slot, e.nflId, e.jerseyNumber, e.team, f.pff_role FROM play_entities e \
+            "SELECT e.slot, e.nflId, e.jerseyNumber, e.team, f.pff_role, f.pff_positionLinedUp FROM play_entities e \
              LEFT JOIN pff_scouting f ON f.gameId = e.gameId AND f.playId = e.playId AND f.nflId = e.nflId \
              WHERE e.gameId = ?1 AND e.playId = ?2 ORDER BY e.slot",
         )?;
@@ -353,6 +358,7 @@ impl Db {
                     jersey: r.get(2)?,
                     team: r.get(3)?,
                     role: r.get(4)?,
+                    lined_up: r.get(5)?,
                 })
             })?
             .collect::<rusqlite::Result<_>>()?;
